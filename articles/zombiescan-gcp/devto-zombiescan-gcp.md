@@ -3,7 +3,7 @@ title: "What Nobody Is Using in Your Google Cloud Projects, and What It Costs"
 published: false
 description: "A local-first CLI that scans Google Cloud projects for unused resources, prices each one from the Cloud Billing Catalog API, and drafts the cleanup. One call per project instead of one per region, read-only by default, and a Claude Code plugin over the same engine."
 tags: googlecloud, python, devops, opensource
-cover_image: https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/devto-cover.d585557c.jpg
+cover_image: https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/devto-cover.f8ea3ac7.jpg
 ---
 
 This article provides a step by step guide to building a Google Cloud waste scanner from source, running it across every project your credentials can see, pricing each finding from the Cloud Billing Catalog API, and drafting the cleanup. A suite of Python checks is built to cover Compute Engine, Cloud SQL, Storage, DNS, KMS, Secret Manager, Artifact Registry, Filestore, Cloud Logging, Cloud Monitoring and GKE.
