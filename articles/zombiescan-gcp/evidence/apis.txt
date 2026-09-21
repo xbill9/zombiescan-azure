@@ -1,0 +1,14 @@
+  artifactregistry.googleapis.com  1 check(s)
+  cloudkms.googleapis.com  1 check(s)
+  compute.googleapis.com  12 check(s)
+  container.googleapis.com  1 check(s)
+  dns.googleapis.com  1 check(s)
+  file.googleapis.com  1 check(s)
+  logging.googleapis.com  1 check(s)
+  monitoring.googleapis.com  1 check(s)
+  secretmanager.googleapis.com  1 check(s)
+  sqladmin.googleapis.com  1 check(s)
+  storage.googleapis.com  1 check(s)
+
+An API that is not enabled on a project is skipped, not reported as an error: a 
+project that never used a service has no waste in it.
