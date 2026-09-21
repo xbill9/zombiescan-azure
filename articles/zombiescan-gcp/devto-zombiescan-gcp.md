@@ -26,7 +26,7 @@ The billing console shows the total. The Recommender surfaces candidates. A figu
 
 - A Google Cloud account and Application Default Credentials, from `gcloud auth application-default login`
 - `uv` on the path, and Python 3.11 or newer
-- Read access to the projects you mean to scan — the predefined `roles/viewer` covers every call, and `policy/zombiescan-scanner-role.yaml` in the repository is a 16-permission custom role that covers exactly as much
+- Read access to the projects you mean to scan — the predefined `roles/viewer` covers every call, and `zombiescan-scanner-role.yaml`, under `policy/` in the repository, is a 16-permission custom role that covers exactly as much
 
 ---
 
@@ -229,7 +229,7 @@ A `~` marks an estimate or an upper bound, and the per-finding `note` in JSON ou
 
 #### Step 9 — Where a Check Runs
 
-A check runs once per project. Two properties of Google's APIs make that complete rather than partial.
+A check runs once per project. Two properties of Google's APIs make that a complete sweep.
 
 Compute Engine's `aggregatedList` returns disks, addresses, instances, routers, subnetworks and forwarding rules across every zone and region in one call. Most other APIs accept `locations/-`, a wildcard meaning every location.
 
@@ -462,7 +462,7 @@ The protocol is JSON-RPC over stdio in the standard library, with no MCP SDK dep
 | Resource | Google Cloud behaviour |
 |---|---|
 | Idle Cloud NAT | Gateway uptime bills per VM using it, so a gateway serving nothing costs the addresses it holds — $3.65 a month each at $0.005/hour. An AWS NAT gateway bills a flat hourly charge whatever uses it. |
-| GKE cluster | $0.10/hour whatever runs on it. Scaling every node pool to zero removes the node cost and leaves the $73 a month management fee. |
+| GKE cluster | $0.10/hour whatever runs on it. Scaling every node pool to zero removes the node cost and leaves the $73.00 a month management fee. |
 | Reserved static IP | Google bills an idle static IP at a higher hourly rate than one attached to a running instance, so the waste costs more than the work. |
 
 ---
