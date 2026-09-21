@@ -1,0 +1,41 @@
+{
+  "configs": {
+    "uptimeCheckConfigs": [
+      {
+        "name": "projects/test-project/uptimeCheckConfigs/deleted-vm-check",
+        "displayName": "API health (old box)",
+        "period": "60s",
+        "selectedRegions": ["USA", "EUROPE"],
+        "monitoredResource": {
+          "type": "gce_instance",
+          "labels": { "project_id": "test-project", "instance_id": "9999999999" }
+        }
+      },
+      {
+        "name": "projects/test-project/uptimeCheckConfigs/live-vm-check",
+        "displayName": "API health",
+        "period": "60s",
+        "monitoredResource": {
+          "type": "gce_instance",
+          "labels": { "project_id": "test-project", "instance_id": "1111111111" }
+        }
+      },
+      {
+        "name": "projects/test-project/uptimeCheckConfigs/external-url-check",
+        "displayName": "Marketing site",
+        "period": "300s",
+        "monitoredResource": {
+          "type": "uptime_url",
+          "labels": { "host": "example.com" }
+        }
+      }
+    ]
+  },
+  "instances": {
+    "items": {
+      "zones/us-central1-a": {
+        "instances": [{ "name": "api-1", "id": "1111111111" }]
+      }
+    }
+  }
+}

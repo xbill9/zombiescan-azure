@@ -1,0 +1,72 @@
+# The least privilege a zombiescan scan needs.
+#
+# Create it on a project:
+#
+#   gcloud iam roles create zombiescanScanner --project=PROJECT_ID \
+#     --file=policy/zombiescan-scanner-role.yaml --quiet
+#
+# or once on the organization, so one role covers every project:
+#
+#   gcloud iam roles create zombiescanScanner --organization=ORG_ID \
+#     --file=policy/zombiescan-scanner-role.yaml --quiet
+#
+# Then grant it to whoever runs the scan. Every permission below is a list or
+# get; none of them can change anything, which is what makes `zombiescan scan`
+# safe to point at production.
+#
+# `zombiescan clean` needs more than this. Deliberately: the scanner's identity
+# should not be able to delete what it reports, so grant the delete permissions
+# to a separate principal used only for cleanup.
+title: zombiescan scanner
+description: >-
+  Read-only access to everything zombiescan scans. List and get calls only.
+stage: GA
+includedPermissions:
+  # --- Compute Engine ------------------------------------------------------
+  # unattached-disk, stopped-instance, orphaned-snapshot, unused-image
+  - compute.disks.list
+  - compute.instances.list
+  - compute.snapshots.list
+  - compute.images.list
+  - compute.instanceTemplates.list
+  # unused-static-ip, idle-forwarding-rule
+  - compute.addresses.list
+  - compute.globalAddresses.list
+  - compute.forwardingRules.list
+  - compute.globalForwardingRules.list
+  - compute.backendServices.list
+  # idle-cloud-nat, empty-vpc-network, unused-subnet, unused-firewall-rule
+  - compute.routers.list
+  - compute.networks.list
+  - compute.subnetworks.list
+  - compute.firewalls.list
+  # Resolving locations. Not used by a check directly, but a Compute client
+  # that cannot read them fails in ways that look like missing resources.
+  - compute.zones.list
+  - compute.regions.list
+
+  # --- managed services ----------------------------------------------------
+  - cloudsql.instances.list           # stopped-sql-instance
+  - dns.managedZones.list             # unused-dns-zone
+  - dns.resourceRecordSets.list       # unused-dns-zone
+  - secretmanager.secrets.list        # stale-secret
+  - secretmanager.versions.list       # stale-secret
+  - cloudkms.locations.list           # disabled-kms-key
+  - cloudkms.keyRings.list            # disabled-kms-key
+  - cloudkms.cryptoKeys.list          # disabled-kms-key
+  - cloudkms.cryptoKeyVersions.list   # disabled-kms-key
+  - file.locations.list               # idle-filestore
+  - file.instances.list               # idle-filestore
+  - artifactregistry.locations.list   # stale-artifact-repository
+  - artifactregistry.repositories.list
+  - logging.buckets.list              # unbounded-log-bucket
+  - monitoring.uptimeCheckConfigs.list  # unused-uptime-check
+  - storage.buckets.list              # unmanaged-gcs-bucket
+  - container.clusters.list           # gke-idle-cluster (gke pack)
+
+  # --- multi-project scanning ----------------------------------------------
+  # `--all-projects` calls Resource Manager's projects.search, which returns
+  # the projects the caller can get. There is no project-level
+  # resourcemanager.projects.list permission: the listing is filtered by this
+  # get, granted on each project or inherited from a folder or organization.
+  - resourcemanager.projects.get

@@ -1,0 +1,57 @@
+{
+  "disks": {
+    "items": {
+      "zones/us-central1-a": {
+        "disks": [{ "name": "live-disk", "id": "111111", "sizeGb": "100" }]
+      }
+    }
+  },
+  "snapshots": {
+    "items": [
+      {
+        "name": "backup-of-deleted-db",
+        "storageBytes": "10737418240",
+        "diskSizeGb": "200",
+        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/old-db",
+        "sourceDiskId": "999999",
+        "creationTimestamp": "2024-03-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"],
+        "labels": { "keep": "no" }
+      },
+      {
+        "name": "backup-of-live-disk",
+        "storageBytes": "5368709120",
+        "diskSizeGb": "100",
+        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/live-disk",
+        "sourceDiskId": "111111",
+        "creationTimestamp": "2025-09-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "recreated-name-collision",
+        "storageBytes": "2147483648",
+        "diskSizeGb": "50",
+        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/live-disk",
+        "sourceDiskId": "222222",
+        "creationTimestamp": "2023-01-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "imported-snapshot-no-source",
+        "storageBytes": "1073741824",
+        "diskSizeGb": "10",
+        "creationTimestamp": "2024-01-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "multi-region-orphan",
+        "storageBytes": "1073741824",
+        "diskSizeGb": "10",
+        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/gone",
+        "sourceDiskId": "888888",
+        "creationTimestamp": "2024-01-01T10:00:00.000Z",
+        "storageLocations": ["us"]
+      }
+    ]
+  }
+}

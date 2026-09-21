@@ -1,0 +1,56 @@
+{
+  "backend_services": {
+    "items": {
+      "global": {
+        "backendServices": [
+          { "name": "empty-backend", "backends": [] },
+          { "name": "live-backend", "backends": [{ "group": ".../instanceGroups/web" }] }
+        ]
+      },
+      "regions/us-central1": {
+        "backendServices": [{ "name": "regional-empty-backend" }]
+      }
+    }
+  },
+  "regional": {
+    "items": {
+      "regions/us-central1": {
+        "forwardingRules": [
+          {
+            "name": "internal-lb-no-backends",
+            "IPAddress": "10.0.0.5",
+            "IPProtocol": "TCP",
+            "portRange": "80-80",
+            "loadBalancingScheme": "INTERNAL_MANAGED",
+            "backendService": "https://www.googleapis.com/compute/v1/projects/p/regions/us-central1/backendServices/regional-empty-backend"
+          },
+          {
+            "name": "rule-pointing-nowhere",
+            "IPAddress": "10.0.0.6",
+            "IPProtocol": "TCP",
+            "loadBalancingScheme": "INTERNAL"
+          }
+        ]
+      },
+      "regions/europe-west1": { "warning": { "code": "NO_RESULTS_ON_PAGE" } }
+    }
+  },
+  "global_rules": {
+    "items": [
+      {
+        "name": "public-lb-no-backends",
+        "IPAddress": "34.1.2.3",
+        "IPProtocol": "TCP",
+        "portRange": "443-443",
+        "loadBalancingScheme": "EXTERNAL_MANAGED",
+        "target": "https://www.googleapis.com/compute/v1/projects/p/global/backendServices/empty-backend"
+      },
+      {
+        "name": "public-lb-live",
+        "IPAddress": "34.1.2.4",
+        "IPProtocol": "TCP",
+        "target": "https://www.googleapis.com/compute/v1/projects/p/global/backendServices/live-backend"
+      }
+    ]
+  }
+}

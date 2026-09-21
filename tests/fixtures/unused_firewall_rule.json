@@ -1,0 +1,66 @@
+{
+  "firewalls": {
+    "items": [
+      {
+        "name": "allow-ssh-disabled",
+        "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
+        "direction": "INGRESS",
+        "disabled": true,
+        "priority": 1000,
+        "targetTags": ["bastion"],
+        "sourceRanges": ["0.0.0.0/0"]
+      },
+      {
+        "name": "allow-old-worker-port",
+        "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
+        "direction": "INGRESS",
+        "priority": 1000,
+        "targetTags": ["retired-worker"],
+        "sourceRanges": ["10.0.0.0/8"]
+      },
+      {
+        "name": "allow-web",
+        "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
+        "direction": "INGRESS",
+        "priority": 1000,
+        "targetTags": ["web"],
+        "sourceRanges": ["0.0.0.0/0"]
+      },
+      {
+        "name": "allow-everything-in-vpc",
+        "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
+        "direction": "INGRESS",
+        "priority": 65534,
+        "sourceRanges": ["10.128.0.0/9"]
+      },
+      {
+        "name": "tag-used-in-another-vpc",
+        "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/staging",
+        "direction": "INGRESS",
+        "priority": 1000,
+        "targetTags": ["web"]
+      }
+    ]
+  },
+  "instances": {
+    "items": {
+      "zones/us-central1-a": {
+        "instances": [
+          {
+            "name": "web-1",
+            "tags": { "items": ["web", "http-server"] },
+            "networkInterfaces": [
+              { "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod" }
+            ]
+          },
+          {
+            "name": "untagged",
+            "networkInterfaces": [
+              { "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod" }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "items": {
+    "zones/us-central1-a": {
+      "disks": [
+        {
+          "name": "orphaned-build-cache",
+          "sizeGb": "100",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/diskTypes/pd-balanced",
+          "status": "READY",
+          "creationTimestamp": "2025-01-15T10:00:00.000-08:00",
+          "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+          "labels": { "team": "platform" },
+          "sourceImage": "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-12-bookworm-v20250115"
+        },
+        {
+          "name": "attached-boot-disk",
+          "sizeGb": "50",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/diskTypes/pd-balanced",
+          "status": "READY",
+          "creationTimestamp": "2025-03-01T10:00:00.000-08:00",
+          "users": [
+            "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/web-1"
+          ]
+        }
+      ]
+    },
+    "zones/us-central1-b": {
+      "disks": [
+        {
+          "name": "big-standard-scratch",
+          "sizeGb": "500",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/pd-standard",
+          "status": "READY",
+          "creationTimestamp": "2024-06-01T08:30:00.000-07:00"
+        },
+        {
+          "name": "fast-hyperdisk",
+          "sizeGb": "200",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/hyperdisk-balanced",
+          "status": "READY",
+          "provisionedIops": "5000",
+          "creationTimestamp": "2025-09-01T12:00:00.000-07:00"
+        },
+        {
+          "name": "future-disk-type",
+          "sizeGb": "8",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/pd-futuretype",
+          "status": "READY",
+          "creationTimestamp": "2025-09-10T12:00:00.000-07:00"
+        }
+      ]
+    },
+    "zones/europe-west1-b": {
+      "disks": [
+        {
+          "name": "eu-leftover",
+          "sizeGb": "100",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/europe-west1-b/diskTypes/pd-balanced",
+          "status": "READY",
+          "creationTimestamp": "2025-02-01T10:00:00.000Z"
+        }
+      ]
+    },
+    "zones/asia-south2-a": {
+      "disks": [
+        {
+          "name": "unpriced-region-disk",
+          "sizeGb": "10",
+          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/asia-south2-a/diskTypes/pd-balanced",
+          "status": "READY",
+          "creationTimestamp": "2025-05-01T10:00:00.000Z"
+        }
+      ]
+    },
+    "zones/us-west1-a": { "warning": { "code": "NO_RESULTS_ON_PAGE", "message": "no results" } }
+  }
+}

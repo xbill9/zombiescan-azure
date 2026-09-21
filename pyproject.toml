@@ -1,0 +1,50 @@
+[project]
+name = "zombiescan-gcp"
+version = "0.1.0"
+description = "Find the Google Cloud resources nobody is using, and what they cost you."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    # One discovery-based client covers every GCP API we touch, so a new check
+    # needs a new API name rather than a new dependency. The per-service
+    # google-cloud-* libraries would each bring their own pagination idiom,
+    # which the generic Step runner in clean.py could not drive.
+    "google-api-python-client>=2.130",
+    "google-auth>=2.30",
+    "click>=8.1",
+    "rich>=13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/xbill9/zombiescan-gcp"
+Repository = "https://github.com/xbill9/zombiescan-gcp"
+Issues = "https://github.com/xbill9/zombiescan-gcp/issues"
+
+[project.scripts]
+zombiescan = "zombiescan.cli:main"
+# The MCP server behind the Claude Code plugin. Same engine, same
+# read-only guarantee; it speaks JSON-RPC over stdio instead of to a terminal.
+zombiescan-mcp = "zombiescan.mcp_server:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6", "jsonschema>=4.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zombiescan"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = ["live: hits a real GCP project; requires ZOMBIESCAN_LIVE=1"]

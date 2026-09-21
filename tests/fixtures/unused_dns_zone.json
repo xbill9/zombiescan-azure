@@ -1,0 +1,45 @@
+{
+  "zones": {
+    "managedZones": [
+      {
+        "name": "agent-local",
+        "dnsName": "agent.local.",
+        "visibility": "private",
+        "creationTime": "2025-03-01T10:00:00.000Z"
+      },
+      {
+        "name": "example-com",
+        "dnsName": "example.com.",
+        "visibility": "public",
+        "creationTime": "2023-01-01T10:00:00.000Z"
+      },
+      {
+        "name": "empty-public",
+        "dnsName": "unused.example.net.",
+        "visibility": "public",
+        "creationTime": "2024-07-01T10:00:00.000Z"
+      }
+    ]
+  },
+  "records": {
+    "agent-local": {
+      "rrsets": [
+        { "name": "agent.local.", "type": "SOA" },
+        { "name": "agent.local.", "type": "NS" }
+      ]
+    },
+    "example-com": {
+      "rrsets": [
+        { "name": "example.com.", "type": "SOA" },
+        { "name": "example.com.", "type": "NS" },
+        { "name": "www.example.com.", "type": "A" }
+      ]
+    },
+    "empty-public": {
+      "rrsets": [
+        { "name": "unused.example.net.", "type": "NS" },
+        { "name": "unused.example.net.", "type": "SOA" }
+      ]
+    }
+  }
+}

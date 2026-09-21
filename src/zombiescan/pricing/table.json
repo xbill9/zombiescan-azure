@@ -1,0 +1,1437 @@
+{
+  "_meta": {
+    "source": "Google Cloud Billing Catalog API, on-demand USD list prices",
+    "generated": "2026-09-21T16:35:39Z",
+    "note": "Regenerate with: python -m zombiescan.pricing.refresh",
+    "packs": [
+      "core",
+      "gke"
+    ]
+  },
+  "fallback_region": "us-central1",
+  "hours_per_month": 730,
+  "disk_gb_month": {
+    "africa-south1": {
+      "pd-balanced": 0.109788,
+      "hyperdisk-ml": 0.088,
+      "regional-pd-ssd": 0.373279,
+      "pd-ssd": 0.1866395,
+      "regional-pd-standard": 0.0878304,
+      "regional-pd-balanced": 0.2195759,
+      "hyperdisk-extreme": 0.138,
+      "hyperdisk-balanced": 0.088,
+      "pd-standard": 0.05232,
+      "pd-extreme": 0.1372349
+    },
+    "asia-east1": {
+      "regional-pd-balanced": 0.2,
+      "pd-extreme": 0.125,
+      "hyperdisk-balanced": 0.093,
+      "regional-pd-standard": 0.08,
+      "hyperdisk-extreme": 0.145,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.1,
+      "hyperdisk-ml": 0.093,
+      "regional-pd-ssd": 0.34,
+      "pd-ssd": 0.17,
+      "pd-standard": 0.04
+    },
+    "asia-east2": {
+      "hyperdisk-extreme": 0.175,
+      "pd-standard": 0.0498,
+      "hyperdisk-balanced": 0.112,
+      "hyperdisk-ml": 0.112,
+      "pd-ssd": 0.187,
+      "pd-balanced": 0.11,
+      "regional-pd-standard": 0.112,
+      "regional-pd-balanced": 0.22,
+      "hyperdisk-throughput": 0.007,
+      "regional-pd-ssd": 0.374,
+      "pd-extreme": 0.138
+    },
+    "asia-northeast1": {
+      "hyperdisk-extreme": 0.16,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.13,
+      "pd-ssd": 0.221,
+      "regional-pd-standard": 0.104,
+      "pd-standard": 0.052,
+      "hyperdisk-ml": 0.102,
+      "pd-extreme": 0.163,
+      "regional-pd-ssd": 0.442,
+      "hyperdisk-balanced": 0.102,
+      "regional-pd-balanced": 0.26
+    },
+    "asia-northeast2": {
+      "pd-ssd": 0.221,
+      "pd-extreme": 0.163,
+      "pd-balanced": 0.13,
+      "pd-standard": 0.052,
+      "hyperdisk-extreme": 0.16,
+      "regional-pd-balanced": 0.26,
+      "hyperdisk-balanced": 0.102,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-ssd": 0.442,
+      "hyperdisk-ml": 0.102,
+      "regional-pd-standard": 0.104
+    },
+    "asia-northeast3": {
+      "pd-standard": 0.052,
+      "regional-pd-standard": 0.104,
+      "pd-ssd": 0.221,
+      "hyperdisk-extreme": 0.143,
+      "hyperdisk-ml": 0.091,
+      "pd-extreme": 0.163,
+      "regional-pd-balanced": 0.26,
+      "pd-balanced": 0.13,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-ssd": 0.442,
+      "hyperdisk-balanced": 0.091
+    },
+    "asia-south1": {
+      "pd-standard": 0.048,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-throughput": 0.005,
+      "pd-extreme": 0.15,
+      "regional-pd-standard": 0.096,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-balanced": 0.083,
+      "hyperdisk-extreme": 0.13,
+      "pd-balanced": 0.12,
+      "hyperdisk-ml": 0.083,
+      "pd-ssd": 0.204
+    },
+    "asia-south2": {
+      "hyperdisk-ml": 0.096,
+      "regional-pd-standard": 0.096,
+      "pd-standard": 0.048,
+      "pd-extreme": 0.15,
+      "pd-ssd": 0.204,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-throughput": 0.006,
+      "hyperdisk-extreme": 0.15,
+      "pd-balanced": 0.12,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-balanced": 0.096
+    },
+    "asia-southeast1": {
+      "pd-standard": 0.044,
+      "pd-balanced": 0.11,
+      "hyperdisk-throughput": 0.006,
+      "hyperdisk-extreme": 0.154,
+      "hyperdisk-ml": 0.098,
+      "regional-pd-standard": 0.088,
+      "regional-pd-ssd": 0.374,
+      "hyperdisk-balanced": 0.098,
+      "regional-pd-balanced": 0.22,
+      "pd-ssd": 0.187,
+      "pd-extreme": 0.138
+    },
+    "asia-southeast2": {
+      "pd-ssd": 0.221,
+      "pd-extreme": 0.163,
+      "hyperdisk-balanced": 0.096,
+      "hyperdisk-ml": 0.096,
+      "regional-pd-balanced": 0.26,
+      "pd-balanced": 0.13,
+      "hyperdisk-extreme": 0.15,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-standard": 0.104,
+      "pd-standard": 0.052,
+      "regional-pd-ssd": 0.442
+    },
+    "asia-southeast3": {
+      "hyperdisk-extreme": 0.13125,
+      "regional-pd-standard": 0.084,
+      "regional-pd-ssd": 0.357,
+      "pd-balanced": 0.105,
+      "regional-pd-balanced": 0.21,
+      "pd-ssd": 0.1785,
+      "pd-standard": 0.042,
+      "hyperdisk-throughput": 0.00525,
+      "pd-extreme": 0.13125,
+      "hyperdisk-ml": 0.084,
+      "hyperdisk-balanced": 0.084
+    },
+    "asia-southeast4": {
+      "pd-ssd": 0.1785,
+      "hyperdisk-extreme": 0.13125,
+      "pd-standard": 0.042,
+      "hyperdisk-balanced": 0.084,
+      "pd-extreme": 0.13125,
+      "regional-pd-standard": 0.084,
+      "regional-pd-balanced": 0.21,
+      "pd-balanced": 0.105,
+      "hyperdisk-throughput": 0.00525,
+      "hyperdisk-ml": 0.084,
+      "regional-pd-ssd": 0.357
+    },
+    "australia-southeast1": {
+      "hyperdisk-balanced": 0.1,
+      "hyperdisk-extreme": 0.156,
+      "regional-pd-ssd": 0.46,
+      "pd-standard": 0.054,
+      "regional-pd-balanced": 0.27,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.135,
+      "pd-ssd": 0.23,
+      "pd-extreme": 0.169,
+      "regional-pd-standard": 0.108,
+      "hyperdisk-ml": 0.1
+    },
+    "australia-southeast2": {
+      "pd-ssd": 0.23,
+      "hyperdisk-extreme": 0.163,
+      "pd-balanced": 0.135,
+      "regional-pd-balanced": 0.27,
+      "hyperdisk-balanced": 0.104,
+      "hyperdisk-throughput": 0.007,
+      "pd-extreme": 0.169,
+      "hyperdisk-ml": 0.104,
+      "regional-pd-ssd": 0.46,
+      "regional-pd-standard": 0.108,
+      "pd-standard": 0.054
+    },
+    "europe-central2": {
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-extreme": 0.15,
+      "hyperdisk-balanced": 0.096,
+      "hyperdisk-ml": 0.096,
+      "regional-pd-balanced": 0.26,
+      "pd-standard": 0.048,
+      "pd-balanced": 0.13,
+      "regional-pd-standard": 0.096,
+      "pd-ssd": 0.204,
+      "pd-extreme": 0.163
+    },
+    "europe-north1": {
+      "hyperdisk-extreme": 0.138,
+      "regional-pd-balanced": 0.22,
+      "pd-ssd": 0.187,
+      "hyperdisk-balanced": 0.088,
+      "hyperdisk-ml": 0.088,
+      "regional-pd-standard": 0.088,
+      "pd-extreme": 0.138,
+      "regional-pd-ssd": 0.374,
+      "pd-balanced": 0.11,
+      "pd-standard": 0.044,
+      "hyperdisk-throughput": 0.006
+    },
+    "europe-north2": {
+      "pd-extreme": 0.125,
+      "regional-pd-ssd": 0.34,
+      "hyperdisk-extreme": 0.125,
+      "pd-balanced": 0.1,
+      "hyperdisk-throughput": 0.005,
+      "hyperdisk-balanced": 0.08,
+      "regional-pd-balanced": 0.2,
+      "pd-standard": 0.04,
+      "hyperdisk-ml": 0.08,
+      "regional-pd-standard": 0.08,
+      "pd-ssd": 0.17
+    },
+    "europe-southwest1": {
+      "hyperdisk-ml": 0.094,
+      "pd-balanced": 0.12,
+      "hyperdisk-balanced": 0.094,
+      "regional-pd-ssd": 0.4012,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-standard": 0.0944,
+      "pd-ssd": 0.2006,
+      "hyperdisk-extreme": 0.148,
+      "pd-standard": 0.0472,
+      "pd-extreme": 0.15
+    },
+    "europe-west1": {
+      "regional-pd-balanced": 0.2,
+      "pd-extreme": 0.125,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-standard": 0.08,
+      "hyperdisk-balanced": 0.088,
+      "pd-balanced": 0.1,
+      "regional-pd-ssd": 0.34,
+      "hyperdisk-extreme": 0.138,
+      "pd-ssd": 0.17,
+      "pd-standard": 0.04,
+      "hyperdisk-ml": 0.088
+    },
+    "europe-west10": {
+      "regional-pd-ssd": 0.5236,
+      "regional-pd-standard": 0.128,
+      "hyperdisk-extreme": 0.1925,
+      "hyperdisk-throughput": 0.0077,
+      "pd-standard": 0.0616,
+      "pd-extreme": 0.1925,
+      "hyperdisk-balanced": 0.1232,
+      "pd-balanced": 0.154,
+      "pd-ssd": 0.2618,
+      "hyperdisk-ml": 0.123,
+      "regional-pd-balanced": 0.308
+    },
+    "europe-west12": {
+      "pd-standard": 0.0516,
+      "pd-extreme": 0.15,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.12,
+      "regional-pd-standard": 0.096,
+      "pd-ssd": 0.204,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-extreme": 0.161,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-ml": 0.103,
+      "hyperdisk-balanced": 0.103
+    },
+    "europe-west2": {
+      "hyperdisk-extreme": 0.143,
+      "pd-ssd": 0.204,
+      "regional-pd-standard": 0.096,
+      "hyperdisk-balanced": 0.091,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-throughput": 0.006,
+      "pd-extreme": 0.15,
+      "regional-pd-ssd": 0.408,
+      "pd-standard": 0.048,
+      "hyperdisk-ml": 0.091,
+      "pd-balanced": 0.12
+    },
+    "europe-west3": {
+      "hyperdisk-ml": 0.094,
+      "regional-pd-standard": 0.096,
+      "pd-ssd": 0.204,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-balanced": 0.094,
+      "hyperdisk-extreme": 0.148,
+      "pd-standard": 0.048,
+      "regional-pd-ssd": 0.408,
+      "pd-balanced": 0.12,
+      "hyperdisk-throughput": 0.006,
+      "pd-extreme": 0.15
+    },
+    "europe-west4": {
+      "pd-extreme": 0.138,
+      "pd-ssd": 0.187,
+      "hyperdisk-balanced": 0.084,
+      "hyperdisk-throughput": 0.005,
+      "pd-balanced": 0.11,
+      "regional-pd-balanced": 0.22,
+      "regional-pd-standard": 0.088,
+      "regional-pd-ssd": 0.374,
+      "hyperdisk-ml": 0.084,
+      "pd-standard": 0.044,
+      "hyperdisk-extreme": 0.131
+    },
+    "europe-west5": {
+      "hyperdisk-ml": 0.103
+    },
+    "europe-west6": {
+      "pd-standard": 0.052,
+      "regional-pd-ssd": 0.442,
+      "hyperdisk-ml": 0.112,
+      "pd-extreme": 0.163,
+      "pd-ssd": 0.221,
+      "regional-pd-balanced": 0.26,
+      "regional-pd-standard": 0.104,
+      "hyperdisk-balanced": 0.112,
+      "pd-balanced": 0.13,
+      "hyperdisk-throughput": 0.007,
+      "hyperdisk-extreme": 0.175
+    },
+    "europe-west8": {
+      "hyperdisk-balanced": 0.093,
+      "hyperdisk-extreme": 0.145,
+      "regional-pd-ssd": 0.3944,
+      "regional-pd-standard": 0.0928,
+      "pd-balanced": 0.116,
+      "hyperdisk-ml": 0.093,
+      "pd-ssd": 0.1972,
+      "pd-extreme": 0.145,
+      "hyperdisk-throughput": 0.006,
+      "pd-standard": 0.0464,
+      "regional-pd-balanced": 0.26
+    },
+    "europe-west9": {
+      "pd-ssd": 0.1972,
+      "regional-pd-standard": 0.0928,
+      "hyperdisk-ml": 0.093,
+      "regional-pd-balanced": 0.26,
+      "hyperdisk-throughput": 0.006,
+      "pd-extreme": 0.145,
+      "hyperdisk-balanced": 0.093,
+      "pd-balanced": 0.116,
+      "pd-standard": 0.0464,
+      "hyperdisk-extreme": 0.145,
+      "regional-pd-ssd": 0.3944
+    },
+    "me-central1": {
+      "regional-pd-ssd": 0.4131,
+      "hyperdisk-ml": 0.097,
+      "regional-pd-standard": 0.0984,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.1215,
+      "pd-standard": 0.0486,
+      "pd-ssd": 0.20655,
+      "pd-extreme": 0.1537,
+      "hyperdisk-balanced": 0.097,
+      "hyperdisk-extreme": 0.152
+    },
+    "me-central2": {
+      "regional-pd-ssd": 0.544,
+      "pd-standard": 0.064,
+      "pd-balanced": 0.16,
+      "hyperdisk-throughput": 0.008,
+      "hyperdisk-ml": 0.128,
+      "regional-pd-balanced": 0.32,
+      "hyperdisk-extreme": 0.2,
+      "pd-extreme": 0.2,
+      "regional-pd-standard": 0.1232,
+      "hyperdisk-balanced": 0.128,
+      "pd-ssd": 0.272
+    },
+    "me-west1": {
+      "hyperdisk-ml": 0.088,
+      "pd-ssd": 0.187,
+      "regional-pd-ssd": 0.374,
+      "pd-balanced": 0.11,
+      "pd-extreme": 0.138,
+      "pd-standard": 0.044,
+      "regional-pd-standard": 0.0972,
+      "regional-pd-balanced": 0.22,
+      "hyperdisk-throughput": 0.006,
+      "hyperdisk-extreme": 0.138,
+      "hyperdisk-balanced": 0.088
+    },
+    "northamerica-northeast1": {
+      "hyperdisk-ml": 0.088,
+      "hyperdisk-balanced": 0.088,
+      "pd-extreme": 0.138,
+      "regional-pd-balanced": 0.22,
+      "hyperdisk-throughput": 0.006,
+      "pd-balanced": 0.11,
+      "pd-standard": 0.044,
+      "regional-pd-standard": 0.088,
+      "hyperdisk-extreme": 0.138,
+      "pd-ssd": 0.187,
+      "regional-pd-ssd": 0.374
+    },
+    "northamerica-northeast2": {
+      "hyperdisk-balanced": 0.088,
+      "pd-balanced": 0.11,
+      "hyperdisk-ml": 0.088,
+      "regional-pd-balanced": 0.22,
+      "hyperdisk-throughput": 0.006,
+      "hyperdisk-extreme": 0.138,
+      "regional-pd-standard": 0.088,
+      "pd-extreme": 0.138,
+      "pd-standard": 0.044,
+      "pd-ssd": 0.187,
+      "regional-pd-ssd": 0.374
+    },
+    "northamerica-south1": {
+      "pd-balanced": 0.109,
+      "hyperdisk-ml": 0.0872,
+      "hyperdisk-balanced": 0.0872,
+      "regional-pd-ssd": 0.3706,
+      "pd-extreme": 0.1362,
+      "regional-pd-standard": 0.0872,
+      "hyperdisk-throughput": 0.0054,
+      "pd-standard": 0.0436,
+      "pd-ssd": 0.1853,
+      "regional-pd-balanced": 0.218,
+      "hyperdisk-extreme": 0.1363
+    },
+    "southamerica-east1": {
+      "hyperdisk-extreme": 0.199,
+      "pd-ssd": 0.255,
+      "hyperdisk-throughput": 0.008,
+      "pd-balanced": 0.15,
+      "hyperdisk-balanced": 0.127,
+      "regional-pd-standard": 0.12,
+      "regional-pd-ssd": 0.51,
+      "pd-extreme": 0.188,
+      "regional-pd-balanced": 0.3,
+      "pd-standard": 0.06,
+      "hyperdisk-ml": 0.127
+    },
+    "southamerica-west1": {
+      "hyperdisk-throughput": 0.007,
+      "pd-extreme": 0.179,
+      "hyperdisk-balanced": 0.114,
+      "regional-pd-ssd": 0.4862,
+      "regional-pd-standard": 0.1144,
+      "pd-ssd": 0.2431,
+      "regional-pd-balanced": 0.286,
+      "pd-balanced": 0.143,
+      "pd-standard": 0.0572,
+      "hyperdisk-extreme": 0.179,
+      "hyperdisk-ml": 0.114
+    },
+    "us-central1": {
+      "hyperdisk-ml": 0.08,
+      "regional-pd-balanced": 0.2,
+      "pd-extreme": 0.125,
+      "hyperdisk-throughput": 0.005,
+      "regional-pd-standard": 0.08,
+      "pd-balanced": 0.1,
+      "hyperdisk-balanced": 0.08,
+      "hyperdisk-extreme": 0.125,
+      "regional-pd-ssd": 0.34,
+      "pd-ssd": 0.17,
+      "pd-standard": 0.04
+    },
+    "us-central2": {
+      "regional-pd-balanced": 0.2,
+      "pd-extreme": 0.125,
+      "regional-pd-standard": 0.08,
+      "pd-balanced": 0.1
+    },
+    "us-east1": {
+      "regional-pd-balanced": 0.2,
+      "hyperdisk-throughput": 0.006,
+      "pd-extreme": 0.125,
+      "regional-pd-standard": 0.08,
+      "hyperdisk-extreme": 0.141,
+      "hyperdisk-balanced": 0.09,
+      "pd-balanced": 0.1,
+      "hyperdisk-ml": 0.09,
+      "regional-pd-ssd": 0.34,
+      "pd-ssd": 0.17,
+      "pd-standard": 0.04
+    },
+    "us-east4": {
+      "hyperdisk-balanced": 0.08,
+      "hyperdisk-throughput": 0.005,
+      "hyperdisk-extreme": 0.125,
+      "pd-ssd": 0.187,
+      "pd-balanced": 0.11,
+      "pd-standard": 0.044,
+      "pd-extreme": 0.138,
+      "regional-pd-ssd": 0.374,
+      "hyperdisk-ml": 0.08,
+      "regional-pd-standard": 0.088,
+      "regional-pd-balanced": 0.22
+    },
+    "us-east5": {
+      "pd-ssd": 0.17,
+      "hyperdisk-ml": 0.08,
+      "regional-pd-balanced": 0.2,
+      "regional-pd-standard": 0.08,
+      "hyperdisk-balanced": 0.08,
+      "pd-extreme": 0.125,
+      "regional-pd-ssd": 0.34,
+      "hyperdisk-extreme": 0.125,
+      "pd-balanced": 0.1,
+      "hyperdisk-throughput": 0.005,
+      "pd-standard": 0.04
+    },
+    "us-east7": {
+      "hyperdisk-ml": 0.08,
+      "pd-balanced": 0.1,
+      "pd-extreme": 0.125,
+      "regional-pd-balanced": 0.2
+    },
+    "us-south1": {
+      "regional-pd-standard": 0.0944,
+      "regional-pd-ssd": 0.4012,
+      "regional-pd-balanced": 0.24,
+      "pd-balanced": 0.12,
+      "hyperdisk-throughput": 0.006,
+      "hyperdisk-balanced": 0.094,
+      "pd-standard": 0.0472,
+      "hyperdisk-ml": 0.094,
+      "pd-extreme": 0.15,
+      "pd-ssd": 0.2006,
+      "hyperdisk-extreme": 0.148
+    },
+    "us-west1": {
+      "hyperdisk-ml": 0.08,
+      "regional-pd-balanced": 0.2,
+      "pd-extreme": 0.125,
+      "regional-pd-standard": 0.08,
+      "hyperdisk-throughput": 0.005,
+      "pd-balanced": 0.1,
+      "regional-pd-ssd": 0.34,
+      "pd-ssd": 0.17,
+      "pd-standard": 0.04,
+      "hyperdisk-balanced": 0.08,
+      "hyperdisk-extreme": 0.125
+    },
+    "us-west2": {
+      "pd-ssd": 0.204,
+      "pd-extreme": 0.15,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-balanced": 0.24,
+      "hyperdisk-ml": 0.096,
+      "hyperdisk-extreme": 0.15,
+      "hyperdisk-balanced": 0.096,
+      "regional-pd-standard": 0.096,
+      "pd-standard": 0.048,
+      "pd-balanced": 0.12
+    },
+    "us-west3": {
+      "regional-pd-balanced": 0.24,
+      "regional-pd-ssd": 0.408,
+      "hyperdisk-balanced": 0.096,
+      "pd-ssd": 0.204,
+      "hyperdisk-ml": 0.096,
+      "pd-extreme": 0.15,
+      "pd-balanced": 0.12,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-standard": 0.096,
+      "pd-standard": 0.048,
+      "hyperdisk-extreme": 0.15
+    },
+    "us-west4": {
+      "pd-extreme": 0.138,
+      "hyperdisk-throughput": 0.006,
+      "regional-pd-balanced": 0.22,
+      "pd-balanced": 0.11,
+      "regional-pd-standard": 0.088,
+      "regional-pd-ssd": 0.374,
+      "pd-standard": 0.044,
+      "pd-ssd": 0.187,
+      "hyperdisk-extreme": 0.141,
+      "hyperdisk-ml": 0.09,
+      "hyperdisk-balanced": 0.09
+    },
+    "us-west8": {
+      "regional-pd-standard": 0.08,
+      "regional-pd-ssd": 0.34,
+      "hyperdisk-ml": 0.08,
+      "regional-pd-balanced": 0.2,
+      "pd-balanced": 0.1,
+      "hyperdisk-extreme": 0.125,
+      "pd-standard": 0.04,
+      "pd-ssd": 0.17,
+      "hyperdisk-balanced": 0.08,
+      "pd-extreme": 0.125
+    }
+  },
+  "snapshot_gb_month": {
+    "africa-south1": 0.054894,
+    "asia": 0.083,
+    "asia-east1": 0.05,
+    "asia-east2": 0.07,
+    "asia-northeast1": 0.064,
+    "asia-northeast2": 0.064,
+    "asia-northeast3": 0.064,
+    "asia-south1": 0.052,
+    "asia-south2": 0.06,
+    "asia-southeast1": 0.061,
+    "asia-southeast2": 0.067,
+    "asia-southeast3": 0.0525,
+    "asia-southeast4": 0.0525,
+    "australia-southeast1": 0.062,
+    "australia-southeast2": 0.065,
+    "europe": 0.075,
+    "europe-central2": 0.065,
+    "europe-north1": 0.055,
+    "europe-north2": 0.05,
+    "europe-southwest1": 0.059,
+    "europe-west1": 0.05,
+    "europe-west10": 0.077,
+    "europe-west12": 0.0312,
+    "europe-west2": 0.057,
+    "europe-west3": 0.059,
+    "europe-west4": 0.053,
+    "europe-west6": 0.07,
+    "europe-west8": 0.058,
+    "europe-west9": 0.058,
+    "me-central1": 0.03159,
+    "me-central2": 0.08,
+    "me-west1": 0.0286,
+    "northamerica-northeast1": 0.055,
+    "northamerica-northeast2": 0.055,
+    "northamerica-south1": 0.0545,
+    "southamerica-east1": 0.08,
+    "southamerica-west1": 0.071,
+    "us": 0.065,
+    "us-central1": 0.05,
+    "us-east1": 0.05,
+    "us-east4": 0.05,
+    "us-east5": 0.026,
+    "us-south1": 0.06,
+    "us-west1": 0.05,
+    "us-west2": 0.06,
+    "us-west3": 0.06,
+    "us-west4": 0.056,
+    "us-west8": 0.05
+  },
+  "image_gb_month": {
+    "africa-south1": 0.05,
+    "asia-east1": 0.05,
+    "asia-east2": 0.065,
+    "asia-northeast1": 0.065,
+    "asia-northeast2": 0.065,
+    "asia-northeast3": 0.065,
+    "asia-south1": 0.06,
+    "asia-south2": 0.06,
+    "asia-southeast1": 0.055,
+    "asia-southeast2": 0.05995,
+    "asia-southeast3": 0.0525,
+    "asia-southeast4": 0.0525,
+    "australia-southeast1": 0.068,
+    "australia-southeast2": 0.068,
+    "europe-central2": 0.06,
+    "europe-north1": 0.055,
+    "europe-north2": 0.05,
+    "europe-southwest1": 0.059,
+    "europe-west1": 0.05,
+    "europe-west10": 0.06,
+    "europe-west12": 0.06,
+    "europe-west2": 0.06,
+    "europe-west3": 0.06,
+    "europe-west4": 0.055,
+    "europe-west6": 0.065,
+    "europe-west8": 0.058,
+    "europe-west9": 0.058,
+    "me-central1": 0.06075,
+    "me-central2": 0.08,
+    "me-west1": 0.055,
+    "northamerica-northeast1": 0.055,
+    "northamerica-northeast2": 0.055,
+    "northamerica-south1": 0.0545,
+    "southamerica-east1": 0.075,
+    "southamerica-west1": 0.0715,
+    "us-central1": 0.05,
+    "us-east1": 0.05,
+    "us-east4": 0.055,
+    "us-east5": 0.05,
+    "us-south1": 0.059,
+    "us-west1": 0.05,
+    "us-west2": 0.06,
+    "us-west3": 0.06,
+    "us-west4": 0.055,
+    "us-west8": 0.05
+  },
+  "static_ip_hour": {
+    "africa-south1": 0.01308,
+    "asia-east1": 0.01,
+    "asia-east2": 0.01,
+    "asia-northeast1": 0.015,
+    "asia-northeast2": 0.015,
+    "asia-northeast3": 0.015,
+    "asia-south1": 0.012,
+    "asia-south2": 0.012,
+    "asia-southeast1": 0.011,
+    "asia-southeast2": 0.011,
+    "asia-southeast3": 0.0105,
+    "asia-southeast4": 0.0105,
+    "australia-southeast1": 0.014,
+    "australia-southeast2": 0.014,
+    "europe-central2": 0.012,
+    "europe-north1": 0.011,
+    "europe-southwest1": 0.012,
+    "europe-west1": 0.01,
+    "europe-west10": 0.0154,
+    "europe-west12": 0.012,
+    "europe-west2": 0.012,
+    "europe-west3": 0.012,
+    "europe-west4": 0.011,
+    "europe-west6": 0.01,
+    "europe-west8": 0.0117,
+    "europe-west9": 0.0117,
+    "me-central1": 0.0123,
+    "me-central2": 0.016,
+    "me-west1": 0.011,
+    "northamerica-northeast1": 0.011,
+    "northamerica-northeast2": 0.011,
+    "northamerica-south1": 0.0109,
+    "southamerica-east1": 0.015,
+    "southamerica-west1": 0.015,
+    "us-central1": 0.01,
+    "us-east1": 0.01,
+    "us-east4": 0.011,
+    "us-east5": 0.01,
+    "us-south1": 0.0118,
+    "us-west1": 0.01,
+    "us-west2": 0.012,
+    "us-west3": 0.012,
+    "us-west4": 0.011,
+    "us-west8": 0.011
+  },
+  "nat_ip_hour": {
+    "_value": 0.005
+  },
+  "forwarding_rule_hour": {
+    "africa-south1": 0.0327,
+    "asia-east1": 0.025,
+    "asia-east2": 0.035,
+    "asia-northeast1": 0.038,
+    "asia-northeast2": 0.038,
+    "asia-northeast3": 0.038,
+    "asia-south1": 0.03,
+    "asia-south2": 0.03,
+    "asia-southeast1": 0.028,
+    "asia-southeast2": 0.03052,
+    "asia-southeast3": 0.02625,
+    "asia-southeast4": 0.02625,
+    "australia-southeast1": 0.034,
+    "australia-southeast2": 0.034,
+    "europe-central2": 0.03,
+    "europe-north1": 0.028,
+    "europe-north2": 0.02625,
+    "europe-southwest1": 0.03,
+    "europe-west1": 0.025,
+    "europe-west10": 0.03,
+    "europe-west12": 0.03,
+    "europe-west2": 0.03,
+    "europe-west3": 0.03,
+    "europe-west4": 0.0275,
+    "europe-west5": 0.03,
+    "europe-west6": 0.0325,
+    "europe-west8": 0.02925,
+    "europe-west9": 0.02925,
+    "me-central1": 0.03075,
+    "me-central2": 0.04,
+    "me-west1": 0.0275,
+    "northamerica-northeast1": 0.0275,
+    "northamerica-northeast2": 0.0275,
+    "northamerica-south1": 0.02725,
+    "southamerica-east1": 0.038,
+    "southamerica-west1": 0.038,
+    "us-central1": 0.025,
+    "us-east1": 0.025,
+    "us-east4": 0.028,
+    "us-east5": 0.025,
+    "us-east7": 0.025,
+    "us-south1": 0.0295,
+    "us-west1": 0.025,
+    "us-west2": 0.0275,
+    "us-west3": 0.0275,
+    "us-west4": 0.028,
+    "us-west8": 0.025
+  },
+  "sql_storage_gb_month": {
+    "africa-south1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "asia-east1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "asia-east2": {
+      "ssd": 0.63,
+      "hdd": 0.27
+    },
+    "asia-northeast1": {
+      "hdd": 0.234,
+      "ssd": 0.546
+    },
+    "asia-northeast2": {
+      "ssd": 0.546,
+      "hdd": 0.234
+    },
+    "asia-northeast3": {
+      "ssd": 0.546,
+      "hdd": 0.234
+    },
+    "asia-south1": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "asia-south2": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "asia-southeast1": {
+      "ssd": 0.588,
+      "hdd": 0.252
+    },
+    "asia-southeast2": {
+      "ssd": 0.546,
+      "hdd": 0.234
+    },
+    "asia-southeast3": {
+      "ssd": 0.441,
+      "hdd": 0.189
+    },
+    "australia-southeast1": {
+      "ssd": 0.567,
+      "hdd": 0.243
+    },
+    "australia-southeast2": {
+      "ssd": 0.567,
+      "hdd": 0.243
+    },
+    "europe-central2": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "europe-north1": {
+      "ssd": 0.462,
+      "hdd": 0.198
+    },
+    "europe-north2": {
+      "ssd": 0.441,
+      "hdd": 0.189
+    },
+    "europe-southwest1": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "europe-west1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "europe-west10": {
+      "ssd": 0.6468,
+      "hdd": 0.2772
+    },
+    "europe-west12": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "europe-west2": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "europe-west3": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "europe-west4": {
+      "ssd": 0.462,
+      "hdd": 0.198
+    },
+    "europe-west5": {
+      "ssd": 0.384
+    },
+    "europe-west6": {
+      "ssd": 0.546,
+      "hdd": 0.234
+    },
+    "europe-west8": {
+      "ssd": 0.4872,
+      "hdd": 0.2088
+    },
+    "europe-west9": {
+      "ssd": 0.4872,
+      "hdd": 0.2088
+    },
+    "me-central1": {
+      "ssd": 0.5124,
+      "hdd": 0.2187
+    },
+    "me-central2": {
+      "ssd": 0.672,
+      "hdd": 0.288
+    },
+    "me-west1": {
+      "hdd": 0.198,
+      "ssd": 0.462
+    },
+    "northamerica-northeast1": {
+      "ssd": 0.462,
+      "hdd": 0.198
+    },
+    "northamerica-northeast2": {
+      "hdd": 0.198,
+      "ssd": 0.462
+    },
+    "northamerica-south1": {
+      "ssd": 0.4578,
+      "hdd": 0.1962
+    },
+    "southamerica-east1": {
+      "ssd": 0.63,
+      "hdd": 0.27
+    },
+    "southamerica-west1": {
+      "ssd": 0.588,
+      "hdd": 0.252
+    },
+    "us-central1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "us-central2": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "us-east1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "us-east4": {
+      "ssd": 0.4494,
+      "hdd": 0.1926
+    },
+    "us-east5": {
+      "hdd": 0.18,
+      "ssd": 0.42
+    },
+    "us-east7": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "us-south1": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "us-west1": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    },
+    "us-west2": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "us-west3": {
+      "ssd": 0.504,
+      "hdd": 0.216
+    },
+    "us-west4": {
+      "ssd": 0.4494,
+      "hdd": 0.1926
+    },
+    "us-west8": {
+      "ssd": 0.42,
+      "hdd": 0.18
+    }
+  },
+  "gcs_gb_month": {
+    "africa-south1": 0.02,
+    "asia-east1": 0.02,
+    "asia-east2": 0.023,
+    "asia-northeast1": 0.023,
+    "asia-northeast2": 0.023,
+    "asia-northeast3": 0.023,
+    "asia-south1": 0.023,
+    "asia-south2": 0.023,
+    "asia-southeast1": 0.02,
+    "asia-southeast2": 0.023,
+    "asia-southeast3": 0.021,
+    "asia-southeast4": 0.021,
+    "australia-southeast1": 0.023,
+    "australia-southeast2": 0.023,
+    "europe-central2": 0.023,
+    "europe-north1": 0.02,
+    "europe-north2": 0.023,
+    "europe-southwest1": 0.023,
+    "europe-west1": 0.02,
+    "europe-west10": 0.025,
+    "europe-west12": 0.023,
+    "europe-west2": 0.023,
+    "europe-west3": 0.023,
+    "europe-west4": 0.02,
+    "europe-west6": 0.025,
+    "europe-west8": 0.023,
+    "europe-west9": 0.023,
+    "me-central1": 0.023,
+    "me-central2": 0.03,
+    "me-west1": 0.021,
+    "northamerica-northeast1": 0.023,
+    "northamerica-northeast2": 0.023,
+    "northamerica-south1": 0.026,
+    "southamerica-east1": 0.035,
+    "southamerica-west1": 0.03,
+    "us-central1": 0.02,
+    "us-east1": 0.02,
+    "us-east4": 0.023,
+    "us-east5": 0.02,
+    "us-east7": 0.02,
+    "us-south1": 0.02,
+    "us-west1": 0.02,
+    "us-west2": 0.023,
+    "us-west3": 0.023,
+    "us-west4": 0.023,
+    "us-west8": 0.02
+  },
+  "dns_zone_month": {
+    "additional": 0.03,
+    "first_25": 0.2,
+    "next_9975": 0.1
+  },
+  "secret_version_month": {
+    "_value": 0.06
+  },
+  "kms_key_version_month": {
+    "asia": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-east1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-east2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-northeast1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-northeast2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-northeast3": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-south1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-south2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-southeast1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia-southeast2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "asia1": {
+      "software": 3.0
+    },
+    "australia-southeast1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "australia-southeast2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "eur3": {
+      "software": 3.0
+    },
+    "eur4": {
+      "software": 0.06
+    },
+    "eur5": {
+      "hsm": 1.0,
+      "software": 3.0
+    },
+    "europe": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-central2": {
+      "software": 0.06
+    },
+    "europe-north1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-southwest1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west12": {
+      "software": 3.0
+    },
+    "europe-west2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west3": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west4": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west6": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west8": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "europe-west9": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "me-central1": {
+      "software": 3.0
+    },
+    "me-west1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "nam-eur-asia1": {
+      "hsm": 1.0
+    },
+    "nam3": {
+      "software": 3.0
+    },
+    "nam4": {
+      "software": 0.06
+    },
+    "nam6": {
+      "software": 3.0
+    },
+    "nam9": {
+      "software": 0.06
+    },
+    "northamerica-northeast1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "northamerica-northeast2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "southamerica-east1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "southamerica-west1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-central1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-central2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-east1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-east4": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-east5": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-south1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-west1": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-west2": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-west3": {
+      "hsm": 1.0,
+      "software": 0.06
+    },
+    "us-west4": {
+      "hsm": 1.0,
+      "software": 0.06
+    }
+  },
+  "artifact_gb_month": {
+    "_value": 0.1
+  },
+  "log_retention_gb_month": {
+    "_value": 0.01
+  },
+  "filestore_gb_month": {
+    "africa-south1": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "asia-east1": {
+      "zonal": 0.28,
+      "regional": 0.5
+    },
+    "asia-east2": {
+      "zonal": 0.3,
+      "regional": 0.55
+    },
+    "asia-northeast1": {
+      "zonal": 0.3,
+      "regional": 0.54
+    },
+    "asia-northeast2": {
+      "zonal": 0.28,
+      "regional": 0.5
+    },
+    "asia-northeast3": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "asia-south1": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "asia-south2": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "asia-southeast1": {
+      "zonal": 0.28,
+      "regional": 0.5
+    },
+    "asia-southeast2": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "asia-southeast3": {
+      "regional": 0.495,
+      "zonal": 0.275
+    },
+    "asia-southeast4": {
+      "regional": 0.495,
+      "zonal": 0.275
+    },
+    "australia-southeast1": {
+      "zonal": 0.3,
+      "regional": 0.54
+    },
+    "australia-southeast2": {
+      "zonal": 0.3,
+      "regional": 0.54
+    },
+    "europe-central2": {
+      "zonal": 0.3,
+      "regional": 0.54
+    },
+    "europe-north1": {
+      "zonal": 0.28,
+      "regional": 0.5
+    },
+    "europe-north2": {
+      "zonal": 0.25,
+      "regional": 0.45
+    },
+    "europe-southwest1": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "europe-west1": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "europe-west10": {
+      "regional": 0.59,
+      "zonal": 0.33
+    },
+    "europe-west12": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "europe-west2": {
+      "regional": 0.55,
+      "zonal": 0.3
+    },
+    "europe-west3": {
+      "regional": 0.54,
+      "zonal": 0.3
+    },
+    "europe-west4": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "europe-west6": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "europe-west8": {
+      "regional": 0.52,
+      "zonal": 0.29
+    },
+    "europe-west9": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "me-central1": {
+      "zonal": 0.29,
+      "regional": 0.53
+    },
+    "me-central2": {
+      "zonal": 0.4,
+      "regional": 0.72
+    },
+    "me-west1": {
+      "regional": 0.5,
+      "zonal": 0.28
+    },
+    "northamerica-northeast1": {
+      "regional": 0.55,
+      "zonal": 0.3
+    },
+    "northamerica-northeast2": {
+      "regional": 0.55,
+      "zonal": 0.3
+    },
+    "northamerica-south1": {
+      "zonal": 0.3,
+      "regional": 0.54
+    },
+    "southamerica-east1": {
+      "regional": 0.68,
+      "zonal": 0.38
+    },
+    "southamerica-west1": {
+      "zonal": 0.35,
+      "regional": 0.63
+    },
+    "us-central1": {
+      "regional": 0.45,
+      "zonal": 0.25
+    },
+    "us-central2": {
+      "regional": 0.45,
+      "zonal": 0.25
+    },
+    "us-east1": {
+      "regional": 0.45,
+      "zonal": 0.25
+    },
+    "us-east4": {
+      "regional": 0.536,
+      "zonal": 0.3
+    },
+    "us-east5": {
+      "regional": 0.45,
+      "zonal": 0.25
+    },
+    "us-south1": {
+      "zonal": 0.28,
+      "regional": 0.5
+    },
+    "us-west1": {
+      "zonal": 0.25,
+      "regional": 0.45
+    },
+    "us-west2": {
+      "zonal": 0.28,
+      "regional": 0.502
+    },
+    "us-west3": {
+      "zonal": 0.28,
+      "regional": 0.502
+    },
+    "us-west4": {
+      "zonal": 0.3,
+      "regional": 0.536
+    },
+    "us-west8": {
+      "zonal": 0.25,
+      "regional": 0.45
+    }
+  },
+  "gke_cluster_hour": {
+    "_value": 0.1
+  }
+}

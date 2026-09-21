@@ -1,0 +1,44 @@
+{
+  "subnetworks": {
+    "items": {
+      "regions/us-central1": {
+        "subnetworks": [
+          {
+            "name": "abandoned-subnet",
+            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/abandoned-vpc",
+            "ipCidrRange": "10.128.0.0/20",
+            "privateIpGoogleAccess": true,
+            "secondaryIpRanges": [
+              { "rangeName": "pods", "ipCidrRange": "10.200.0.0/14" }
+            ]
+          },
+          {
+            "name": "prod-subnet",
+            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
+            "ipCidrRange": "10.0.0.0/20"
+          },
+          {
+            "name": "proxy-only-subnet",
+            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/abandoned-vpc",
+            "ipCidrRange": "10.129.0.0/23",
+            "purpose": "REGIONAL_MANAGED_PROXY"
+          }
+        ]
+      }
+    }
+  },
+  "instances": {
+    "items": {
+      "zones/us-central1-a": {
+        "instances": [
+          {
+            "name": "web-1",
+            "networkInterfaces": [
+              { "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod" }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

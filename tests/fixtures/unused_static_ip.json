@@ -1,0 +1,56 @@
+{
+  "regional": {
+    "items": {
+      "regions/us-central1": {
+        "addresses": [
+          {
+            "name": "orphaned-web-ip",
+            "address": "34.10.0.1",
+            "status": "RESERVED",
+            "addressType": "EXTERNAL",
+            "networkTier": "PREMIUM",
+            "creationTimestamp": "2025-02-01T10:00:00.000-08:00",
+            "description": "left over from the old web tier"
+          },
+          {
+            "name": "in-use-ip",
+            "address": "34.10.0.2",
+            "status": "IN_USE",
+            "addressType": "EXTERNAL",
+            "users": ["https://www.googleapis.com/compute/v1/projects/p/zones/z/instances/web-1"]
+          }
+        ]
+      },
+      "regions/europe-west1": {
+        "addresses": [
+          {
+            "name": "eu-spare-ip",
+            "address": "35.20.0.1",
+            "status": "RESERVED",
+            "addressType": "EXTERNAL",
+            "creationTimestamp": "2025-06-01T10:00:00.000Z"
+          }
+        ]
+      },
+      "regions/us-west1": { "warning": { "code": "NO_RESULTS_ON_PAGE" } }
+    }
+  },
+  "global": {
+    "items": [
+      {
+        "name": "old-lb-ip",
+        "address": "34.99.0.1",
+        "status": "RESERVED",
+        "addressType": "EXTERNAL",
+        "ipVersion": "IPV4",
+        "creationTimestamp": "2024-11-01T10:00:00.000Z"
+      },
+      {
+        "name": "live-lb-ip",
+        "address": "34.99.0.2",
+        "status": "IN_USE",
+        "addressType": "EXTERNAL"
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+
+# tooling caches
+.ruff_cache/
+.pytest_cache/
+
+# credentials -- never commit a service account key
+*-service-account*.json
+application_default_credentials.json
+
+# local claude settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# scan output
+findings.json
+cleanup.sh
+remediation.sh
+scan-*.json
+cleanup-*.sh
+zombiescan-report.html
+
+# scraped pages -- local reference only, not ours to republish
+HACKATHON.md
+RULES.md

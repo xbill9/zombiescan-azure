@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/xbill9/zombiescan-gcp/blob/main/docs/findings.schema.json",
+  "title": "zombiescan findings report",
+  "description": "Output of `zombiescan scan --json`. Check schema_version before parsing.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool",
+    "packs",
+    "scan",
+    "pricing",
+    "totals",
+    "findings",
+    "errors"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3,
+      "description": "Incremented on any breaking change to this document."
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "description": "Packs loaded for this scan. Added in schema_version 2.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "api_version",
+          "source"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "api_version": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string",
+            "description": "'built-in', or the distribution that provided the pack."
+          },
+          "homepage": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": [
+        "generated",
+        "projects",
+        "pairs_attempted",
+        "complete"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "generated": {
+          "type": "string",
+          "description": "UTC, ISO 8601."
+        },
+        "duration_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pairs_attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pairs_unavailable": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Project/check pairs skipped because the API is not enabled on that project. Not failures; counted separately so 'complete' stays meaningful."
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "False when every project/check pair failed. An incomplete scan that found nothing is NOT an all-clear."
+        },
+        "principal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Who the scan ran as: a user or service account email, or a note that Application Default Credentials were used."
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The Google Cloud projects scanned. Replaces 'regions' in schema_version 3: the unit of fan-out is the project, because aggregatedList and the locations/- wildcard already cover every location."
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "required": [
+        "generated",
+        "basis",
+        "excludes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "generated": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When the bundled price table was built. Without it the report is not auditable."
+        },
+        "basis": {
+          "type": "string"
+        },
+        "excludes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "monthly_cost",
+        "annual_cost",
+        "finding_count",
+        "by_check"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "monthly_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "annual_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_check": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "count",
+              "monthly_cost"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "monthly_cost": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check",
+          "resource_id",
+          "resource_type",
+          "project",
+          "location",
+          "reason",
+          "monthly_cost",
+          "approximate_cost",
+          "remediation",
+          "details"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "monthly_cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "approximate_cost": {
+            "type": "boolean",
+            "description": "True when the figure is an estimate or an upper bound. details.note says why."
+          },
+          "remediation": {
+            "type": "string",
+            "description": "A gcloud command. Generated, never executed. It always names its project and passes --quiet, so it neither prompts nor acts on the wrong project."
+          },
+          "details": {
+            "type": "object"
+          },
+          "project": {
+            "type": "string",
+            "description": "The Google Cloud project the resource belongs to."
+          },
+          "location": {
+            "type": "string",
+            "description": "A zone (us-central1-a), a region (us-central1), or \"global\". Replaces 'region' in schema_version 3, because Google Cloud resources come in all three shapes and the exact one is needed to delete anything."
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "project",
+          "check",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "check": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

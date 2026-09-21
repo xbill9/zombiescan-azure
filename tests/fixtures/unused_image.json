@@ -1,0 +1,94 @@
+{
+  "images": {
+    "items": [
+      {
+        "name": "app-v1",
+        "status": "READY",
+        "family": "app",
+        "archiveSizeBytes": "5368709120",
+        "diskSizeGb": "20",
+        "creationTimestamp": "2024-01-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "app-v2",
+        "status": "READY",
+        "family": "app",
+        "archiveSizeBytes": "6442450944",
+        "diskSizeGb": "20",
+        "creationTimestamp": "2025-08-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "base-referenced-by-instance",
+        "status": "READY",
+        "archiveSizeBytes": "1073741824",
+        "diskSizeGb": "10",
+        "creationTimestamp": "2024-05-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "base-referenced-by-template",
+        "status": "READY",
+        "archiveSizeBytes": "1073741824",
+        "diskSizeGb": "10",
+        "creationTimestamp": "2024-05-01T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      },
+      {
+        "name": "deprecated-leftover",
+        "status": "READY",
+        "archiveSizeBytes": "10737418240",
+        "diskSizeGb": "50",
+        "deprecated": { "state": "DEPRECATED" },
+        "creationTimestamp": "2023-02-01T10:00:00.000Z",
+        "storageLocations": ["europe-west1"]
+      },
+      {
+        "name": "still-building",
+        "status": "PENDING",
+        "archiveSizeBytes": "1073741824",
+        "creationTimestamp": "2026-09-20T10:00:00.000Z",
+        "storageLocations": ["us-central1"]
+      }
+    ]
+  },
+  "instances": {
+    "items": {
+      "zones/us-central1-a": {
+        "instances": [
+          {
+            "name": "web-1",
+            "disks": [
+              {
+                "initializeParams": {
+                  "sourceImage": "https://www.googleapis.com/compute/v1/projects/p/global/images/base-referenced-by-instance"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "templates": {
+    "items": {
+      "global": {
+        "instanceTemplates": [
+          {
+            "name": "worker-template",
+            "properties": {
+              "disks": [
+                {
+                  "initializeParams": {
+                    "sourceImage": "https://www.googleapis.com/compute/v1/projects/p/global/images/base-referenced-by-template"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
