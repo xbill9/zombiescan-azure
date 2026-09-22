@@ -1,6 +1,6 @@
 """The MCP server: protocol, tool behaviour, and the read-only guarantee.
 
-Offline. The tools that need Google Cloud (`scan_project`, `plan_cleanup`) are exercised
+Offline. The tools that need Azure (`scan_subscription`, `plan_cleanup`) are exercised
 through the pieces that do not -- the summariser, the filter, the report
 loader -- because the value of these tools is in the numbers they compute, and
 those are all computed from a report document.
@@ -18,6 +18,9 @@ import pytest
 
 from zombiescan import mcp_server, report
 
+SUB_A = "aaaaaaaa-0000-0000-0000-000000000000"
+SUB_B = "bbbbbbbb-0000-0000-0000-000000000000"
+
 REPORT: dict[str, Any] = {
     "schema_version": report.SCHEMA_VERSION,
     "tool": {"name": "zombiescan", "version": "0.1.0"},
@@ -26,72 +29,84 @@ REPORT: dict[str, Any] = {
         "generated": "2026-09-21T10:00:00Z",
         "duration_seconds": 4.2,
         "principal": "me@example.com",
-        "projects": ["proj-1", "proj-2"],
-        "pairs_attempted": 40,
+        "subscriptions": [SUB_A, SUB_B],
+        "pairs_attempted": 44,
         "pairs_unavailable": 0,
         "complete": True,
     },
     "pricing": {
         "generated": "2026-09-20",
-        "basis": "Google Cloud Billing Catalog API, on-demand USD list prices",
+        "basis": "Azure Retail Prices API, pay-as-you-go USD list prices",
     },
     "totals": {
         "monthly_cost": 76.30,
         "annual_cost": 915.60,
         "finding_count": 4,
         "by_check": {
-            "gke-idle-cluster": {"count": 1, "monthly_cost": 32.85},
+            "idle-nat-gateway": {"count": 1, "monthly_cost": 32.85},
             "unattached-disk": {"count": 2, "monthly_cost": 39.80},
-            "unused-static-ip": {"count": 1, "monthly_cost": 3.65},
+            "unused-public-ip": {"count": 1, "monthly_cost": 3.65},
         },
     },
     "findings": [
         {
             "check": "unattached-disk",
             "resource_id": "data-aaa",
-            "resource_type": "compute-disk",
-            "project": "proj-1",
-            "location": "us-central1-a",
-            "reason": "400 GB pd-balanced disk attached to no instance",
+            "resource_type": "managed-disk",
+            "subscription": SUB_A,
+            "resource_group": "prod-rg",
+            "location": "eastus",
+            "arm_id": f"/subscriptions/{SUB_A}/resourceGroups/prod-rg"
+            "/providers/Microsoft.Compute/disks/data-aaa",
+            "reason": "1024 GiB Premium_LRS disk attached to no VM, billed as P30 LRS",
             "monthly_cost": 32.00,
             "approximate_cost": False,
-            "remediation": "gcloud compute disks delete data-aaa --zone=us-central1-a",
-            "details": {"size_gb": 400},
+            "remediation": "az disk delete --name data-aaa --resource-group prod-rg",
+            "details": {"size_gb": 1024},
         },
         {
-            "check": "gke-idle-cluster",
-            "resource_id": "cluster-bbb",
-            "resource_type": "gke-cluster",
-            "project": "proj-2",
-            "location": "europe-west1",
-            "reason": "GKE cluster runs no nodes but still pays the management fee",
+            "check": "idle-nat-gateway",
+            "resource_id": "egress-bbb",
+            "resource_type": "nat-gateway",
+            "subscription": SUB_B,
+            "resource_group": "net-rg",
+            "location": "westeurope",
+            "arm_id": f"/subscriptions/{SUB_B}/resourceGroups/net-rg"
+            "/providers/Microsoft.Network/natGateways/egress-bbb",
+            "reason": "NAT gateway is attached to no subnet and bills its hourly fee anyway",
             "monthly_cost": 32.85,
             "approximate_cost": True,
-            "remediation": "gcloud container clusters delete cluster-bbb --location=europe-west1",
+            "remediation": "az network nat gateway delete --name egress-bbb",
             "details": {},
         },
         {
             "check": "unattached-disk",
             "resource_id": "data-ccc",
-            "resource_type": "compute-disk",
-            "project": "proj-2",
-            "location": "europe-west1-b",
-            "reason": "100 GB pd-balanced disk attached to no instance",
+            "resource_type": "managed-disk",
+            "subscription": SUB_B,
+            "resource_group": "net-rg",
+            "location": "westeurope",
+            "arm_id": f"/subscriptions/{SUB_B}/resourceGroups/net-rg"
+            "/providers/Microsoft.Compute/disks/data-ccc",
+            "reason": "128 GiB Premium_LRS disk attached to no VM, billed as P10 LRS",
             "monthly_cost": 7.80,
             "approximate_cost": False,
-            "remediation": "gcloud compute disks delete data-ccc --zone=europe-west1-b",
-            "details": {"size_gb": 100},
+            "remediation": "az disk delete --name data-ccc --resource-group net-rg",
+            "details": {"size_gb": 128},
         },
         {
-            "check": "unused-static-ip",
+            "check": "unused-public-ip",
             "resource_id": "ip-ddd",
-            "resource_type": "compute-address",
-            "project": "proj-1",
-            "location": "us-central1",
-            "reason": "Static IP reserved but attached to nothing",
+            "resource_type": "public-ip",
+            "subscription": SUB_A,
+            "resource_group": "prod-rg",
+            "location": "eastus",
+            "arm_id": f"/subscriptions/{SUB_A}/resourceGroups/prod-rg"
+            "/providers/Microsoft.Network/publicIPAddresses/ip-ddd",
+            "reason": "Standard static public IP attached to nothing",
             "monthly_cost": 3.65,
             "approximate_cost": False,
-            "remediation": "gcloud compute addresses delete ip-ddd --region=us-central1",
+            "remediation": "az network public-ip delete --name ip-ddd",
             "details": {},
         },
     ],
@@ -152,7 +167,7 @@ def test_tools_list_advertises_every_tool_with_a_schema() -> None:
     response = mcp_server.dispatch({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     tools = response["result"]["tools"]
     assert {t["name"] for t in tools} == {
-        "scan_project",
+        "scan_subscription",
         "estimate_savings",
         "explain_finding",
         "list_checks",
@@ -219,7 +234,7 @@ def test_estimate_savings_totals_the_whole_report(report_path: str) -> None:
     assert payload["matched"]["count"] == 4
     assert payload["matched"]["monthly_cost"] == 76.30
     assert payload["matched"]["annual_cost"] == 915.60
-    assert payload["matched"]["costliest"]["resource_id"] == "cluster-bbb"
+    assert payload["matched"]["costliest"]["resource_id"] == "egress-bbb"
     assert payload["matched"]["cheapest"]["resource_id"] == "ip-ddd"
     assert payload["matched"]["approximate_count"] == 1
 
@@ -232,26 +247,28 @@ def test_estimate_savings_groups_by_check_region_and_type(report_path: str) -> N
         "monthly_cost": 39.80,
     }
     assert payload["by_location"] == [
-        {"location": "europe-west1", "count": 1, "monthly_cost": 32.85},
-        {"location": "us-central1-a", "count": 1, "monthly_cost": 32.0},
-        {"location": "europe-west1-b", "count": 1, "monthly_cost": 7.8},
-        {"location": "us-central1", "count": 1, "monthly_cost": 3.65},
+        {"location": "westeurope", "count": 2, "monthly_cost": 40.65},
+        {"location": "eastus", "count": 2, "monthly_cost": 35.65},
     ]
-    assert payload["by_project"] == [
-        {"project": "proj-2", "count": 2, "monthly_cost": 40.65},
-        {"project": "proj-1", "count": 2, "monthly_cost": 35.65},
+    assert payload["by_subscription"] == [
+        {"subscription": SUB_B, "count": 2, "monthly_cost": 40.65},
+        {"subscription": SUB_A, "count": 2, "monthly_cost": 35.65},
+    ]
+    assert payload["by_resource_group"] == [
+        {"resource_group": "net-rg", "count": 2, "monthly_cost": 40.65},
+        {"resource_group": "prod-rg", "count": 2, "monthly_cost": 35.65},
     ]
     assert {row["resource_type"] for row in payload["by_resource_type"]} == {
-        "compute-disk",
-        "gke-cluster",
-        "compute-address",
+        "managed-disk",
+        "nat-gateway",
+        "public-ip",
     }
 
 
 def test_estimate_savings_filters_and_reports_what_it_filtered_on(report_path: str) -> None:
     payload = call(
         "estimate_savings",
-        {"report_path": report_path, "checks": ["unattached-disk"], "locations": ["us-central1-a"]},
+        {"report_path": report_path, "checks": ["unattached-disk"], "locations": ["eastus"]},
     )
     assert payload["matched"]["count"] == 1
     assert payload["matched"]["monthly_cost"] == 32.00
@@ -284,7 +301,7 @@ def test_a_single_string_is_accepted_where_a_list_is_asked_for(report_path: str)
 def test_a_missing_report_names_the_fix(report_path: str) -> None:
     payload = call("estimate_savings", {"report_path": "/nonexistent/report.json"})
     assert payload["_is_error"] is True
-    assert "scan_project" in payload["error"]
+    assert "scan_subscription" in payload["error"]
 
 
 def test_a_report_from_another_schema_is_refused(tmp_path: pathlib.Path) -> None:
@@ -300,17 +317,18 @@ def test_a_report_from_another_schema_is_refused(tmp_path: pathlib.Path) -> None
 
 def test_explain_finding_describes_a_check_from_its_module() -> None:
     payload = call("explain_finding", {"check": "unattached-disk"})
-    assert payload["title"] == "Unattached Persistent Disks"
+    assert payload["title"] == "Unattached managed disks"
     assert payload["pack"] == "core"
-    assert "attached to no instance" in payload["why_it_is_waste"]
+    assert "attached to no virtual" in payload["why_it_is_waste"]
     assert payload["cleanable"] is True
 
 
-def test_explain_finding_names_the_apis_a_check_calls() -> None:
-    """An operator whose scan reported nothing needs to know which API to enable."""
-    payload = call("explain_finding", {"check": "gke-idle-cluster"})
-    assert payload["apis"] == ["container"]
-    assert payload["pack"] == "gke"
+def test_explain_finding_names_the_providers_a_check_reads() -> None:
+    """An operator whose scan reported nothing needs to know which provider
+    was never registered on the subscription."""
+    payload = call("explain_finding", {"check": "aks-idle-cluster"})
+    assert payload["providers"] == ["Microsoft.ContainerService"]
+    assert payload["pack"] == "aks"
 
 
 def test_explain_finding_reports_a_refusal_to_clean() -> None:
@@ -323,8 +341,8 @@ def test_explain_finding_reports_a_refusal_to_clean() -> None:
 
 
 def test_explain_finding_looks_a_resource_up_in_a_report(report_path: str) -> None:
-    payload = call("explain_finding", {"resource_id": "cluster-bbb", "report_path": report_path})
-    assert payload["check"] == "gke-idle-cluster"
+    payload = call("explain_finding", {"resource_id": "egress-bbb", "report_path": report_path})
+    assert payload["check"] == "idle-nat-gateway"
     assert payload["finding"]["monthly_cost"] == 32.85
     assert "Approximate" in payload["cost_basis"]
     assert "never run" in payload["remediation_note"]
@@ -360,9 +378,9 @@ def test_list_checks_covers_every_registered_check() -> None:
 
 
 def test_list_checks_filters_by_pack() -> None:
-    payload = call("list_checks", {"pack": "gke"})
+    payload = call("list_checks", {"pack": "aks"})
     assert payload["count"] > 0
-    assert {row["pack"] for row in payload["checks"]} == {"gke"}
+    assert {row["pack"] for row in payload["checks"]} == {"aks"}
 
 
 def test_list_checks_can_show_only_what_can_be_cleaned() -> None:
@@ -381,9 +399,9 @@ def test_summarise_returns_computed_totals_and_the_costliest_rows() -> None:
         "annual_cost": 915.60,
     }
     assert len(summary["top_findings"]) == 2
-    assert summary["by_check"][0]["check"] == "gke-idle-cluster"
+    assert summary["by_check"][0]["check"] == "idle-nat-gateway"
     assert summary["principal"] == "me@example.com"
-    assert summary["projects_scanned"] == ["proj-1", "proj-2"]
+    assert summary["subscriptions_scanned"] == [SUB_A, SUB_B]
     assert "warning" not in summary
 
 
@@ -406,8 +424,8 @@ def test_the_server_cannot_apply_a_cleanup() -> None:
     """The one thing that executes a plan must not be reachable from here.
 
     `plan_cleanup` calls `clean.plan_for`, which only ever builds Step objects.
-    `clean.apply_outcome` is what sends them to AWS; this module may not name
-    it, or anything else from `clean` beyond planning.
+    `clean.apply_outcome` is what sends them to Azure; this module may not
+    name it, or anything else from `clean` beyond planning.
     """
     source = pathlib.Path(mcp_server.__file__).read_text()
     assert "apply_outcome" not in source
@@ -418,3 +436,40 @@ def test_no_tool_offers_to_change_anything() -> None:
     names = {entry["name"] for entry in mcp_server.TOOLS}
     assert names == set(mcp_server.HANDLERS)
     assert not {n for n in names if n.split("_")[0] in ("delete", "apply", "remove", "release")}
+
+
+def test_a_resource_group_filter_narrows_to_one_group(report_path: str) -> None:
+    """The resource group has no Google Cloud equivalent, and it is the unit
+    an Azure operator actually cleans in."""
+    payload = call("estimate_savings", {"report_path": report_path, "resource_groups": ["net-rg"]})
+    assert payload["matched"]["count"] == 2
+    assert payload["matched"]["monthly_cost"] == 40.65
+    assert payload["filter_applied"]["resource_groups"] == ["net-rg"]
+
+
+def test_a_mistyped_resource_group_is_named_rather_than_returning_zero(report_path: str) -> None:
+    payload = call("estimate_savings", {"report_path": report_path, "resource_groups": ["net_rg"]})
+    assert payload["matched"]["count"] == 0
+    assert payload["filter_applied"]["no_such_resource_groups_in_report"] == ["net_rg"]
+
+
+def test_the_summary_says_how_much_of_the_catalog_actually_ran() -> None:
+    """An agent handed only a finding count cannot tell a clean subscription
+    from one where two thirds of the checks never ran."""
+    document = {
+        **REPORT,
+        "findings": [],
+        "totals": {"monthly_cost": 0.0, "annual_cost": 0.0, "finding_count": 0, "by_check": {}},
+        "scan": {**REPORT["scan"], "pairs_attempted": 22, "pairs_unavailable": 9},
+    }
+    summary = mcp_server.summarise(document)
+    assert summary["coverage"]["pairs_attempted"] == 22
+    assert summary["coverage"]["pairs_skipped_provider_not_registered"] == 9
+    assert summary["coverage"]["pairs_that_ran"] == 13
+    assert "9 of 22" in summary["coverage"]["note"]
+
+
+def test_a_subscription_where_everything_applied_gets_no_such_note() -> None:
+    summary = mcp_server.summarise(REPORT)
+    assert summary["coverage"]["pairs_skipped_provider_not_registered"] == 0
+    assert "note" not in summary["coverage"]

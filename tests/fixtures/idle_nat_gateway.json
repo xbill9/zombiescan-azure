@@ -1,0 +1,50 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/natGateways/egress-gw-old",
+      "name": "egress-gw-old",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "tags": {},
+      "zones": [],
+      "properties": {
+        "idleTimeoutInMinutes": 4,
+        "subnets": [],
+        "publicIpAddresses": [
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/nat-ip-1"
+          },
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/nat-ip-2"
+          }
+        ],
+        "publicIpPrefixes": []
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/natGateways/egress-gw",
+      "name": "egress-gw",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "idleTimeoutInMinutes": 4,
+        "subnets": [
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/app"
+          }
+        ],
+        "publicIpAddresses": [
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/nat-ip"
+          }
+        ]
+      }
+    }
+  ]
+}

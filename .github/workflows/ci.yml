@@ -33,7 +33,8 @@ jobs:
         run: uv run ruff format --check .
 
       # No credentials are configured for this job on purpose: the suite must
-      # pass entirely offline against recorded fixtures. The live smoke test is
-      # deselected by the `-m 'not live'` default in pyproject.toml.
+      # pass entirely offline against recorded fixtures, with no `az` on the
+      # runner and no network. The live smoke test is deselected by the
+      # `-m 'not live'` default in pyproject.toml.
       - name: Test
         run: uv run pytest -q

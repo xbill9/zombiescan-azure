@@ -1,0 +1,66 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Web/serverfarms/prod-plan",
+      "name": "prod-plan",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "P1 v3",
+        "tier": "PremiumV3",
+        "capacity": 2
+      },
+      "tags": {},
+      "properties": {
+        "numberOfSites": 0,
+        "reserved": false,
+        "zoneRedundant": false
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Web/serverfarms/linux-plan",
+      "name": "linux-plan",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "P1 v3",
+        "tier": "PremiumV3",
+        "capacity": 1
+      },
+      "properties": {
+        "numberOfSites": 0,
+        "reserved": true
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Web/serverfarms/free-plan",
+      "name": "free-plan",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "F1",
+        "tier": "Free",
+        "capacity": 1
+      },
+      "properties": {
+        "numberOfSites": 0,
+        "reserved": false
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Web/serverfarms/busy-plan",
+      "name": "busy-plan",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "S1",
+        "tier": "Standard",
+        "capacity": 1
+      },
+      "properties": {
+        "numberOfSites": 3,
+        "reserved": false
+      }
+    }
+  ]
+}

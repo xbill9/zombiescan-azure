@@ -5,14 +5,14 @@
     "url": "https://github.com/xbill9"
   },
   "metadata": {
-    "description": "The zombiescan Google Cloud waste scanner as a Claude Code plugin.",
+    "description": "The zombiescan Azure waste scanner as a Claude Code plugin.",
     "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "zombiescan",
       "source": "./plugin",
-      "description": "Scan Google Cloud projects for unused resources, price them, and plan the cleanup. Read-only."
+      "description": "Scan Azure subscriptions for unused resources, price them, and plan the cleanup. Read-only."
     }
   ]
 }

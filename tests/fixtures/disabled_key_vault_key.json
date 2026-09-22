@@ -1,0 +1,75 @@
+{
+  "vaults": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/prod-kv",
+        "name": "prod-kv",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "properties": {
+          "sku": {
+            "family": "A",
+            "name": "premium"
+          },
+          "enableSoftDelete": true
+        }
+      }
+    ]
+  },
+  "keys": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/prod-kv/keys/retired-signing",
+        "name": "retired-signing",
+        "properties": {
+          "kty": "RSA-HSM",
+          "keySize": 2048,
+          "attributes": {
+            "enabled": false,
+            "created": 1700000000,
+            "updated": 1730000000
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/prod-kv/keys/retired-large",
+        "name": "retired-large",
+        "properties": {
+          "kty": "RSA-HSM",
+          "keySize": 4096,
+          "attributes": {
+            "enabled": false,
+            "created": 1700000000,
+            "updated": 1730000000
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/prod-kv/keys/old-software",
+        "name": "old-software",
+        "properties": {
+          "kty": "RSA",
+          "keySize": 2048,
+          "attributes": {
+            "enabled": false,
+            "created": 1700000000,
+            "updated": 1730000000
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/prod-kv/keys/active-signing",
+        "name": "active-signing",
+        "properties": {
+          "kty": "RSA-HSM",
+          "keySize": 2048,
+          "attributes": {
+            "enabled": true,
+            "created": 1700000000,
+            "updated": 1760000000
+          }
+        }
+      }
+    ]
+  }
+}

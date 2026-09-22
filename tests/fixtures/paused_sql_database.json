@@ -1,0 +1,64 @@
+{
+  "servers": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Sql/servers/analytics-sql",
+        "name": "analytics-sql",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "properties": {
+          "state": "Ready"
+        }
+      }
+    ]
+  },
+  "databases": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Sql/servers/analytics-sql/databases/master",
+        "name": "master",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "System",
+          "tier": "System"
+        },
+        "properties": {
+          "status": "Online",
+          "maxSizeBytes": 32212254720
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Sql/servers/analytics-sql/databases/reporting",
+        "name": "reporting",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "GP_S_Gen5_2",
+          "tier": "GeneralPurpose"
+        },
+        "properties": {
+          "status": "Paused",
+          "maxSizeBytes": 107374182400,
+          "pausedDate": "2026-01-14T22:03:11Z",
+          "autoPauseDelay": 60,
+          "zoneRedundant": false
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Sql/servers/analytics-sql/databases/orders",
+        "name": "orders",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "GP_Gen5_4",
+          "tier": "GeneralPurpose"
+        },
+        "properties": {
+          "status": "Online",
+          "maxSizeBytes": 107374182400
+        }
+      }
+    ]
+  }
+}

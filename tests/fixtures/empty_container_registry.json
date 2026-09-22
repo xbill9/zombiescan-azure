@@ -1,0 +1,62 @@
+{
+  "registries": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.ContainerRegistry/registries/oldbuilds",
+        "name": "oldbuilds",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Premium",
+          "tier": "Premium"
+        },
+        "tags": {},
+        "properties": {
+          "loginServer": "oldbuilds.azurecr.io",
+          "adminUserEnabled": false,
+          "creationDate": "2024-06-01T10:00:00Z",
+          "dataEndpointHostNames": []
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.ContainerRegistry/registries/prodimages",
+        "name": "prodimages",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard"
+        },
+        "properties": {
+          "loginServer": "prodimages.azurecr.io",
+          "creationDate": "2024-06-01T10:00:00Z"
+        }
+      }
+    ]
+  },
+  "usages_empty": {
+    "value": [
+      {
+        "name": "Size",
+        "limit": 536870912000,
+        "currentValue": 0,
+        "unit": "Bytes"
+      },
+      {
+        "name": "Webhooks",
+        "limit": 500,
+        "currentValue": 0,
+        "unit": "Count"
+      }
+    ]
+  },
+  "usages_full": {
+    "value": [
+      {
+        "name": "Size",
+        "limit": 107374182400,
+        "currentValue": 42949672960,
+        "unit": "Bytes"
+      }
+    ]
+  }
+}

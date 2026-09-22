@@ -1,13 +1,12 @@
-"""Bundled Google Cloud price table.
+"""Bundled Azure price table.
 
 Prices ship with the package so a scan works offline and does not add a
-Cloud Billing Catalog call (and its latency) to every run. Regenerate with
+Retail Prices API call (and its latency) to every run. Regenerate with
 ``uv run python -m zombiescan.pricing.refresh``.
 
-Lookups are keyed by *region*. A finding in a zone prices as its region, which
-``Finding.region`` and ``gcp.region_of`` work out, because Google prices
-storage and networking regionally and charges the same in every zone of one
-region.
+Lookups are keyed by *region*, as ARM spells one: ``eastus``, not ``East US``.
+``Finding.region`` and ``azure.region_of`` normalise it. Azure bills the same
+rate in every availability zone of a region, so a zone never enters a lookup.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ class PriceTable:
 
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data
-        self._fallback = data.get("fallback_region", "us-central1")
+        self._fallback = data.get("fallback_region", "eastus")
         self._hours = data.get("hours_per_month", 730)
 
     @classmethod
@@ -50,7 +49,7 @@ class PriceTable:
 
     @property
     def hours_per_month(self) -> int:
-        """Hours the table bills a month as. Google bills 730."""
+        """Hours the table bills a month as. Azure bills 730."""
         return self._hours
 
     def section(self, name: str) -> Any:

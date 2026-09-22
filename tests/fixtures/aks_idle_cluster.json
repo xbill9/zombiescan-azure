@@ -1,0 +1,76 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.ContainerService/managedClusters/scaled-to-zero",
+      "name": "scaled-to-zero",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Base",
+        "tier": "Standard"
+      },
+      "tags": {},
+      "properties": {
+        "provisioningState": "Succeeded",
+        "currentKubernetesVersion": "1.30.4",
+        "powerState": {
+          "code": "Running"
+        },
+        "agentPoolProfiles": [
+          {
+            "name": "system",
+            "count": 0,
+            "vmSize": "Standard_D2s_v5",
+            "mode": "System"
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.ContainerService/managedClusters/free-sandbox",
+      "name": "free-sandbox",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Base",
+        "tier": "Free"
+      },
+      "properties": {
+        "provisioningState": "Succeeded",
+        "currentKubernetesVersion": "1.29.9",
+        "powerState": {
+          "code": "Stopped"
+        },
+        "agentPoolProfiles": [
+          {
+            "name": "agentpool",
+            "count": 0,
+            "vmSize": "Standard_B2s",
+            "mode": "System"
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.ContainerService/managedClusters/prod-aks",
+      "name": "prod-aks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "tier": "Standard"
+      },
+      "properties": {
+        "provisioningState": "Succeeded",
+        "currentKubernetesVersion": "1.30.4",
+        "agentPoolProfiles": [
+          {
+            "name": "system",
+            "count": 3,
+            "vmSize": "Standard_D4s_v5",
+            "mode": "System"
+          }
+        ]
+      }
+    }
+  ]
+}

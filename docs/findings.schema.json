@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/xbill9/zombiescan-gcp/blob/main/docs/findings.schema.json",
+  "$id": "https://github.com/xbill9/zombiescan-azure/blob/main/docs/findings.schema.json",
   "title": "zombiescan findings report",
   "description": "Output of `zombiescan scan --json`. Check schema_version before parsing.",
   "type": "object",
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3,
+      "const": 4,
       "description": "Incremented on any breaking change to this document."
     },
     "tool": {
@@ -76,9 +76,9 @@
       "type": "object",
       "required": [
         "generated",
-        "projects",
         "pairs_attempted",
-        "complete"
+        "complete",
+        "subscriptions"
       ],
       "additionalProperties": false,
       "properties": {
@@ -99,7 +99,7 @@
         "pairs_unavailable": {
           "type": "integer",
           "minimum": 0,
-          "description": "Project/check pairs skipped because the API is not enabled on that project. Not failures; counted separately so 'complete' stays meaningful."
+          "description": "Subscription/check pairs skipped because the check's resource provider is not registered on that subscription. Not failures: a subscription that has never used a service has no waste in it. A high count against a low pairs_attempted means most of the catalog did not apply, which is not the same as a clean subscription."
         },
         "complete": {
           "type": "boolean",
@@ -110,14 +110,14 @@
             "string",
             "null"
           ],
-          "description": "Who the scan ran as: a user or service account email, or a note that Application Default Credentials were used."
+          "description": "Who the scan ran as: the user or service principal the Azure CLI is signed in as."
         },
-        "projects": {
+        "subscriptions": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "The Google Cloud projects scanned. Replaces 'regions' in schema_version 3: the unit of fan-out is the project, because aggregatedList and the locations/- wildcard already cover every location."
+          "description": "Every subscription the scan covered. A finding's subscription means nothing without it."
         }
       }
     },
@@ -138,7 +138,8 @@
           "description": "When the bundled price table was built. Without it the report is not auditable."
         },
         "basis": {
-          "type": "string"
+          "type": "string",
+          "description": "Where the prices came from. Azure Retail Prices API, pay-as-you-go USD list prices."
         },
         "excludes": {
           "type": "array",
@@ -201,13 +202,15 @@
           "check",
           "resource_id",
           "resource_type",
-          "project",
           "location",
           "reason",
           "monthly_cost",
           "approximate_cost",
           "remediation",
-          "details"
+          "details",
+          "subscription",
+          "resource_group",
+          "arm_id"
         ],
         "additionalProperties": false,
         "properties": {
@@ -233,18 +236,26 @@
           },
           "remediation": {
             "type": "string",
-            "description": "A gcloud command. Generated, never executed. It always names its project and passes --quiet, so it neither prompts nor acts on the wrong project."
+            "description": "An `az` command. Generated, never executed. It always names its subscription and its resource group, and carries --yes only where the command would otherwise prompt."
           },
           "details": {
             "type": "object"
           },
-          "project": {
-            "type": "string",
-            "description": "The Google Cloud project the resource belongs to."
-          },
           "location": {
             "type": "string",
-            "description": "A zone (us-central1-a), a region (us-central1), or \"global\". Replaces 'region' in schema_version 3, because Google Cloud resources come in all three shapes and the exact one is needed to delete anything."
+            "description": "An Azure region as ARM spells it (eastus), or \"global\" for a resource that has none, such as a public DNS zone."
+          },
+          "subscription": {
+            "type": "string",
+            "description": "The subscription the resource is in."
+          },
+          "resource_group": {
+            "type": "string",
+            "description": "The resource group the resource is in. Azure needs it to address anything, so a finding without one produces a command nobody can run."
+          },
+          "arm_id": {
+            "type": "string",
+            "description": "The full Azure Resource Manager path. The only identifier unique across a tenant, and the handle a cleaner acts on; resource_id holds the bare name for display."
           }
         }
       }
@@ -254,19 +265,19 @@
       "items": {
         "type": "object",
         "required": [
-          "project",
+          "subscription",
           "check",
           "message"
         ],
         "additionalProperties": false,
         "properties": {
-          "project": {
-            "type": "string"
-          },
           "check": {
             "type": "string"
           },
           "message": {
+            "type": "string"
+          },
+          "subscription": {
             "type": "string"
           }
         }

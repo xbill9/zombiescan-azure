@@ -2,8 +2,8 @@
 
 Everything here is built so that a dry run and a real run take the same path
 and produce the same plan. ``apply`` gates one thing: whether a planned step
-is sent to Google Cloud. If the dry run is wrong, the real run is wrong in the
-same way, which is the only way a preview is worth anything.
+is sent to Azure. If the dry run is wrong, the real run is wrong in the same
+way, which is the only way a preview is worth anything.
 """
 
 from __future__ import annotations
@@ -12,11 +12,9 @@ import datetime as dt
 from dataclasses import dataclass, field
 from typing import Any
 
-import googleapiclient.errors
-
-from zombiescan import gcp
+from zombiescan import azure
+from zombiescan.azure import Arm, ArmError
 from zombiescan.cleaners import CLEANERS, Step
-from zombiescan.gcp import Clients
 from zombiescan.models import Finding, ScanContext
 from zombiescan.pricing import PriceTable
 from zombiescan.registry import CHECKS
@@ -45,7 +43,7 @@ class Outcome:
         return self.finding.monthly_cost if self.status == APPLIED else 0.0
 
 
-def plan_for(clients: Clients, finding: Finding, pricing: PriceTable) -> Outcome:
+def plan_for(arm: Arm, finding: Finding, pricing: PriceTable) -> Outcome:
     """Work out the calls that would resolve this finding. Makes no changes."""
     spec = CHECKS.get(finding.check)
     if spec is not None and spec.uncleanable:
@@ -72,7 +70,7 @@ def plan_for(clients: Clients, finding: Finding, pricing: PriceTable) -> Outcome
             error=f"no cleaner is implemented for {finding.check}",
         )
 
-    ctx = ScanContext(clients=clients, project=finding.project, pricing=pricing)
+    ctx = ScanContext(arm=arm, subscription=finding.subscription, pricing=pricing)
     try:
         steps = list(planner(ctx, finding))
     except Exception as exc:  # noqa: BLE001 - planning must not abort the run
@@ -85,36 +83,42 @@ def plan_for(clients: Clients, finding: Finding, pricing: PriceTable) -> Outcome
     return Outcome(finding=finding, steps=steps, status=PLANNED)
 
 
-def apply_outcome(outcome: Outcome, clients: Clients) -> Outcome:
+def apply_outcome(outcome: Outcome, arm: Arm) -> Outcome:
     """Execute a planned outcome, stopping that finding at its first failure.
 
     Steps within a finding are ordered and dependent -- snapshot before
-    delete, image before delete -- so a failed step must not be followed by
+    delete, detach before release -- so a failed step must not be followed by
     the destructive one that assumed it succeeded.
     """
     for step in outcome.steps:
         try:
-            response = gcp.call(clients.get(step.api), step.operation, **step.params)
-        except googleapiclient.errors.HttpError as exc:
+            response = arm.request(
+                step.method,
+                step.path,
+                azure.api_version(step.resource_type),
+                body=step.body,
+            )
+        except ArmError as exc:
             outcome.status = FAILED
-            outcome.error = f"{step.operation}: {gcp.message_of(exc)}"
+            outcome.error = f"{step.summary}: {azure.message_of(exc)}"
             return outcome
         except Exception as exc:  # noqa: BLE001
             outcome.status = FAILED
-            outcome.error = f"{step.operation}: {type(exc).__name__}: {exc}"
+            outcome.error = f"{step.summary}: {type(exc).__name__}: {exc}"
             return outcome
         outcome.results.append(
             {
-                "operation": step.operation,
-                "api": step.api,
+                "method": step.method,
+                "path": step.path,
                 "description": step.description,
-                # Most Compute mutations return a long-running Operation. Keep
-                # the identifiers a reader would need to audit or follow it,
-                # and drop the rest.
+                # Most ARM mutations are long-running: the call returns 202
+                # with an empty body and a provisioning state to follow. Keep
+                # the identifiers a reader would need to audit it, and drop
+                # the rest.
                 "returned": {
                     key: value
                     for key, value in (response or {}).items()
-                    if key in ("id", "name", "status", "selfLink", "targetLink", "done")
+                    if key in ("id", "name", "status", "provisioningState")
                     and isinstance(value, (str, int, float, bool))
                 },
             }
@@ -141,7 +145,8 @@ def audit_document(
             {
                 "check": o.finding.check,
                 "resource_id": o.finding.resource_id,
-                "project": o.finding.project,
+                "subscription": o.finding.subscription,
+                "resource_group": o.finding.resource_group,
                 "location": o.finding.location,
                 "monthly_cost": round(o.finding.monthly_cost, 2),
                 "status": o.status,
@@ -150,9 +155,10 @@ def audit_document(
                 "steps": [
                     {
                         "description": s.description,
-                        "api": s.api,
-                        "operation": s.operation,
-                        "params": s.params,
+                        "method": s.method,
+                        "path": s.path,
+                        "resource_type": s.resource_type,
+                        "body": s.body,
                         "irreversible": s.irreversible,
                     }
                     for s in o.steps

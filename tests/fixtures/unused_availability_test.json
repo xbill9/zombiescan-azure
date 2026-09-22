@@ -1,0 +1,63 @@
+{
+  "webtests": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/webtests/checkout-ping",
+        "name": "checkout-ping",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {
+          "hidden-link:/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/components/checkout-insights": "Resource"
+        },
+        "properties": {
+          "SyntheticMonitorId": "checkout-ping",
+          "Enabled": true,
+          "Frequency": 300,
+          "Locations": [
+            {
+              "Id": "us-va-ash-azr"
+            },
+            {
+              "Id": "emea-nl-ams-azr"
+            }
+          ]
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/webtests/home-ping",
+        "name": "home-ping",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {
+          "hidden-link:/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/components/web-insights": "Resource"
+        },
+        "properties": {
+          "SyntheticMonitorId": "home-ping",
+          "Enabled": true,
+          "Frequency": 300,
+          "Locations": [
+            {
+              "Id": "us-va-ash-azr"
+            }
+          ]
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/webtests/hand-made",
+        "name": "hand-made",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "SyntheticMonitorId": "hand-made",
+          "Enabled": true
+        }
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Insights/components/web-insights"
+    }
+  ]
+}

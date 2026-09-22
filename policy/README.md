@@ -1,28 +1,44 @@
 # Least privilege
 
-`zombiescan-scanner-role.yaml` is a Google Cloud custom role holding exactly
-the permissions a scan uses: one list or get per API the checks call, and
+`zombiescan-scanner-role.json` is an Azure custom role holding exactly the
+permissions a scan uses: one read per resource type the checks call, and
 nothing that can change anything.
 
 ```
-gcloud iam roles create zombiescanScanner --project=PROJECT_ID \
-  --file=policy/zombiescan-scanner-role.yaml --quiet
+az role definition create --role-definition policy/zombiescan-scanner-role.json
 
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member=user:you@example.com \
-  --role=projects/PROJECT_ID/roles/zombiescanScanner --quiet
+az role assignment create \
+  --assignee you@example.com \
+  --role "zombiescan Scanner" \
+  --scope /subscriptions/SUBSCRIPTION_ID
 ```
 
-To scan many projects, create the role on the organization instead
-(`--organization=ORG_ID`) and grant it at the folder or organization level; the
-binding is inherited and `--all-projects` then sees everything it covers.
+Edit `assignableScopes` first: it must name the subscription, management group
+or resource group the role may be assigned at. To scan many subscriptions,
+create the role against a management group
+(`/providers/Microsoft.Management/managementGroups/GROUP_ID`) and assign it
+there; the assignment is inherited and `--all-subscriptions` then sees
+everything it covers.
 
 ## Keeping it in step
 
-Every check declares the APIs it calls. `zombiescan apis` prints them, and each
-permission above is annotated with the check that needs it. A new check that
-calls a new API needs a line here, or a scan running under this role reports
-nothing for it and looks like a clean project.
+Every check declares the resource providers it reads. `zombiescan providers`
+prints them, and `tests/test_packs.py` fails if a check names a provider this
+role does not cover. A new check that reads a new provider needs a line here,
+or a scan running under this role reports nothing for it.
+
+**On Azure that failure is quiet in two ways at once.** A resource type the
+role does not cover is filtered out of the list rather than refused, so the
+call succeeds and returns fewer resources; and a provider that is not
+registered on the subscription returns an empty page with HTTP 200. Neither
+looks like an error. The engine handles the second by reading each
+subscription's provider registrations before it runs a check, and the suite
+handles the first by generating this list from the same declarations.
+
+`Microsoft.ResourceGraph/resources/read` is what lets Resource Graph answer at
+all. Resource Graph returns only resources the caller can already read, so it
+grants no reach beyond the rest of this list — it is the query surface, not an
+extra permission.
 
 ## Cleaning needs more, on purpose
 
@@ -34,7 +50,7 @@ for cleanup, and only when you are running one.
 ## Not yet verified against a scoped principal
 
 This role is assembled from the calls the checks make, not from a run that was
-constrained by it. Credentials with Owner or Editor are not limited by IAM in
-the way this role describes, so a scan under one of those does not exercise it.
-Bind the role to a dedicated service account and scan with that before relying
-on the claim.
+constrained by it. Credentials with Owner or Contributor are not limited by
+Azure RBAC in the way this role describes, so a scan under one of those does
+not exercise it. Assign the role to a dedicated service principal and scan
+with that before relying on the claim.

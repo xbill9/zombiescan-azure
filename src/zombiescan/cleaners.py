@@ -2,8 +2,9 @@
 
 A cleaner does not execute anything. It *plans*: given a finding, it yields
 the mutating calls that would resolve it, in order. Read-only calls needed to
-build that plan (listing a repository's images, say) happen during planning,
-because a dry run that cannot see what it would touch is not a dry run.
+build that plan (fetching a VM's disks, reading a vault's soft-delete setting)
+happen during planning, because a dry run that cannot see what it would touch
+is not a dry run.
 
 The runner in ``clean.py`` decides whether to execute the plan. That split is
 the whole safety design: --apply changes one thing, whether the planned steps
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from zombiescan.models import Finding, ScanContext
@@ -26,22 +27,32 @@ from zombiescan.models import Finding, ScanContext
 
 @dataclass(frozen=True)
 class Step:
-    """One mutating API call.
+    """One mutating ARM call.
 
-    ``operation`` is a dotted path into the discovery client, the same way a
-    check names what it lists: ``"disks.delete"`` is ``compute.disks().delete``
-    and ``"projects.secrets.delete"`` is
-    ``secretmanager.projects().secrets().delete``. Naming it rather than
-    closing over it is what lets a dry run print the exact call it would make.
+    Every Azure mutation is an HTTP verb against a resource path, so a step is
+    that pair plus the resource type its api-version is pinned from. Naming
+    the call rather than closing over it is what lets a dry run print the
+    exact request it would send -- ``DELETE /subscriptions/.../disks/scratch``
+    is something an operator can check against the portal before agreeing to
+    it.
     """
 
     description: str
-    api: str
-    operation: str
-    params: dict[str, Any] = field(default_factory=dict)
+    method: str
+    path: str
+    resource_type: str
+    body: dict[str, Any] | None = None
     # Irreversible means no recovery window, no snapshot, no undo: once this
-    # returns, the data is gone or on an unstoppable timer.
+    # returns, the resource is gone or on an unstoppable timer. Azure has more
+    # recovery windows than most clouds -- Key Vault soft-delete, storage
+    # account blob soft-delete, SQL point-in-time restore -- so this flag is
+    # for the genuinely final ones.
     irreversible: bool = False
+
+    @property
+    def summary(self) -> str:
+        """``DELETE /subscriptions/.../disks/scratch``, for the dry run."""
+        return f"{self.method.upper()} {self.path}"
 
 
 PlanFn = Callable[[ScanContext, Finding], Iterator[Step]]
@@ -61,12 +72,42 @@ def cleaner(check: str) -> Callable[[PlanFn], PlanFn]:
 def backup_name(prefix: str) -> str:
     """A unique, self-describing name for a pre-delete snapshot.
 
-    Google names are validated against a pattern -- lowercase, digits and
-    hyphens, 63 characters at most -- so a timestamp is the only safe way to
-    keep two runs from colliding.
+    Azure resource names are validated per provider -- a snapshot allows 80
+    characters of letters, digits, underscores, periods and hyphens -- so a
+    timestamp is the only safe way to keep two runs from colliding.
     """
-    return f"{prefix}-zombiescan-{_stamp()}"[:63].rstrip("-")
+    return f"{prefix}-zombiescan-{_stamp()}"[:80].rstrip("-.")
 
 
 def _stamp() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y%m%d-%H%M%S")
+
+
+def snapshot_step(finding: Finding, disk_id: str, location: str, name: str = "") -> Step:
+    """Snapshot one managed disk before something destroys it.
+
+    An incremental snapshot bills only the blocks that differ from the disk's
+    previous snapshot, so taking one before a delete is close to free where a
+    disk has been snapshotted before and a full copy where it has not. Either
+    way it is cheaper than the disk it replaces, which is what makes
+    snapshot-then-delete the default rather than a flag.
+    """
+    snapshot = name or backup_name(finding.resource_id)
+    group = finding.resource_group
+    path = (
+        f"/subscriptions/{finding.subscription}/resourceGroups/{group}"
+        f"/providers/Microsoft.Compute/snapshots/{snapshot}"
+    )
+    return Step(
+        description=f"snapshot {finding.resource_id} to {snapshot} before deleting it",
+        method="PUT",
+        path=path,
+        resource_type="Microsoft.Compute/snapshots",
+        body={
+            "location": location,
+            "properties": {
+                "creationData": {"createOption": "Copy", "sourceResourceId": disk_id},
+                "incremental": True,
+            },
+        },
+    )

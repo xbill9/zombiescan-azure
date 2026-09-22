@@ -1,11 +1,18 @@
-"""Project fan-out and check execution.
+"""Subscription fan-out and check execution.
 
-Every Google Cloud call made from here is read-only. The engine never mutates
+Every Azure call made from here is read-only. The engine never mutates
 anything and never runs generated remediation.
 
-The unit of fan-out is the project, not the region. ``aggregatedList`` and the
-``locations/-`` wildcard cover every location in one call, so a scan of ten
-projects makes roughly ten calls per check rather than ten times forty.
+The unit of fan-out is the subscription, not the region. One Resource Graph
+query covers every region and every resource group, so a scan of ten
+subscriptions makes roughly ten calls per check rather than ten times sixty.
+
+**A check is not run where its resource provider is not registered.** ARM
+answers a list call against an unregistered provider with HTTP 200 and an
+empty page, so a check that simply ran would find nothing and the subscription
+would be reported clean. The registration is read once per subscription and
+the pair is counted as unavailable instead -- the same treatment a disabled
+API gets, for the same reason.
 """
 
 from __future__ import annotations
@@ -13,10 +20,8 @@ from __future__ import annotations
 import concurrent.futures
 from dataclasses import dataclass, field
 
-import googleapiclient.errors
-
-from zombiescan import gcp, packs
-from zombiescan.gcp import Clients, CredentialError
+from zombiescan import azure, packs
+from zombiescan.azure import Arm, ArmError, CredentialError, ProviderNotRegistered
 from zombiescan.models import Finding, ScanContext
 from zombiescan.pricing import PriceTable
 from zombiescan.registry import CHECKS, CheckSpec
@@ -27,7 +32,7 @@ __all__ = [
     "ScanResult",
     "filter_locations",
     "load_packs",
-    "resolve_projects",
+    "resolve_subscriptions",
     "scan",
     "select_checks",
     "verify_credentials",
@@ -36,7 +41,7 @@ __all__ = [
 
 @dataclass
 class ScanError:
-    project: str
+    subscription: str
     check: str
     message: str
 
@@ -45,12 +50,13 @@ class ScanError:
 class ScanResult:
     findings: list[Finding] = field(default_factory=list)
     errors: list[ScanError] = field(default_factory=list)
-    projects: list[str] = field(default_factory=list)
+    subscriptions: list[str] = field(default_factory=list)
     attempted: int = 0
-    # Pairs where the API is simply switched off on that project. A fact about
-    # how the project is set up, not a failure: a project that has never used
-    # Filestore has no Filestore waste, and an error per disabled API would
-    # bury the findings under noise.
+    # Pairs where the resource provider is simply not registered on that
+    # subscription. A fact about how the subscription is set up, not a
+    # failure: a subscription that has never used App Service has no App
+    # Service waste, and an error per unregistered provider would bury the
+    # findings under noise.
     unavailable: int = 0
 
     @property
@@ -59,99 +65,92 @@ class ScanResult:
 
     @property
     def completely_failed(self) -> bool:
-        """Every project/check pair errored, so "no findings" means nothing.
+        """Every subscription/check pair errored, so "no findings" means nothing.
 
-        A scan of a project that does not exist reports zero waste and zero
-        findings, which is indistinguishable from a clean project unless the
-        caller is told the difference.
+        A scan of a subscription that does not exist reports zero waste and
+        zero findings, which is indistinguishable from a clean subscription
+        unless the caller is told the difference.
         """
         return self.attempted > 0 and (len(self.errors) + self.unavailable) == self.attempted
 
 
-def verify_credentials(quota_project: str | None = None) -> tuple[Clients, str, str | None]:
-    """Build clients from ADC. Returns ``(clients, principal, default project)``.
+def verify_credentials(
+    subscription: str | None = None, refresh: bool = False
+) -> tuple[Arm, str, str | None]:
+    """Build an ARM client from the ``az`` CLI's credentials.
 
-    The principal is whatever the credentials identify as -- a user email, or
-    a service account -- and is recorded in the report so a later ``clean
-    --from`` can refuse a report produced by somebody else.
+    Returns ``(arm, principal, default subscription)``. The principal is
+    whatever ``az`` is signed in as -- a user, or a service principal -- and is
+    recorded in the report so a later ``clean --from`` can refuse a report
+    produced by somebody else.
+
+    The client is handed every subscription ``az`` knows about, across every
+    tenant it has signed into, so that each request can be sent with a token
+    issued for the right one. ``refresh`` re-queries each tenant rather than
+    reading the CLI's cached list, which is worth the second it costs when the
+    scan is about to sweep everything.
     """
-    credentials, project = gcp.default_credentials(quota_project)
-    clients = Clients(credentials)
-    principal = _principal_of(credentials)
-    return clients, principal, project
+    credential, principal, default = azure.default_credentials(subscription)
+    return Arm(credential, azure.known_subscriptions(refresh=refresh)), principal, default
 
 
-def _principal_of(credentials) -> str:
-    """Who these credentials belong to, without spending an API call.
-
-    ADC user credentials carry no identity until they are refreshed, and a
-    service account carries its email outright. Neither path needs a network
-    round trip, which keeps `zombiescan checks` usable offline.
-    """
-    for attribute in ("service_account_email", "signer_email", "_account", "account"):
-        value = getattr(credentials, attribute, None)
-        if isinstance(value, str) and value:
-            return value
-    return "application default credentials"
-
-
-def resolve_projects(
-    clients: Clients,
-    projects: tuple[str, ...],
-    all_projects: bool,
-    default_project: str | None,
+def resolve_subscriptions(
+    arm: Arm,
+    subscriptions: tuple[str, ...],
+    all_subscriptions: bool,
+    default_subscription: str | None,
 ) -> list[str]:
-    """Which projects to scan.
+    """Which subscriptions to scan.
 
-    ``--all-projects`` asks Resource Manager for every ACTIVE project the
-    caller can see, which is the real equivalent of an AWS ``--all-regions``:
-    the forgotten resources are in the project nobody opens.
+    ``--all-subscriptions`` takes every enabled subscription the ``az`` CLI
+    holds credentials for, **across every tenant it has signed into**. That is
+    the real equivalent of an AWS ``--all-regions``: the forgotten resources
+    are in the subscription nobody opens, and often in the tenant nobody opens.
+
+    Asking ARM instead would quietly cover one tenant, because an ARM token is
+    issued for a single tenant and can only list that tenant's subscriptions.
+    One person having two is ordinary -- Microsoft lets one email address be
+    both a work or school account and a personal Microsoft account -- and a
+    sweep that silently skipped half of them would report less waste and look
+    like good news.
     """
-    if projects:
-        return list(projects)
+    if subscriptions:
+        return list(subscriptions)
 
-    if all_projects:
-        found = []
-        for project in gcp.paginate(
-            clients.get("cloudresourcemanager"),
-            "projects",
-            method="search",
-            key="projects",
-            query="state:ACTIVE",
-        ):
-            project_id = project.get("projectId")
-            if project_id:
-                found.append(project_id)
+    if all_subscriptions:
+        found = sorted(s.id for s in arm.known if s.enabled)
         if not found:
             raise CredentialError(
-                "--all-projects found no active projects these credentials can see. "
-                "Pass --project explicitly."
+                "--all-subscriptions found no enabled subscriptions the Azure CLI has "
+                "signed into. Run 'az login' (add --allow-no-subscriptions if the account "
+                "has none), or pass --subscription explicitly."
             )
-        return sorted(found)
+        return found
 
-    if not default_project:
+    if not default_subscription:
         raise CredentialError(
-            "No project configured. Set one with 'gcloud config set project <id>', "
-            "pass --project, or use --all-projects."
+            "No subscription configured. Set one with 'az account set --subscription <id>', "
+            "pass --subscription, or use --all-subscriptions."
         )
-    return [default_project]
+    return [default_subscription]
 
 
 def filter_locations(findings: list[Finding], locations: tuple[str, ...]) -> list[Finding]:
-    """Keep only findings in the given zones or regions.
+    """Keep only findings in the given regions.
 
-    Applied to findings rather than to the calls, because one aggregated call
-    already returned every location. Naming a region keeps its zones too:
-    ``--location us-central1`` is the question an operator means to ask, and
-    it would be a trap for it to exclude ``us-central1-a``.
+    Applied to findings rather than to the queries, because one Resource Graph
+    call already returned every region. Global resources are kept whatever is
+    asked for: a DNS zone has no region to match, and hiding it because the
+    operator named one would drop a finding they were not excluding.
+
+    Region names are matched as ARM spells them -- ``eastus``, not ``East
+    US`` -- but the comparison ignores case and spaces, so both work.
     """
     if not locations:
         return findings
-    wanted = set(locations)
+    wanted = {azure.region_of(location) for location in locations}
     return [
-        f
-        for f in findings
-        if f.location in wanted or gcp.region_of(f.location) in wanted or f.location == gcp.GLOBAL
+        f for f in findings if azure.region_of(f.location) in wanted or f.location == azure.GLOBAL
     ]
 
 
@@ -195,46 +194,68 @@ def select_checks(
     return selected
 
 
-def _run_one(spec: CheckSpec, clients: Clients, project: str, pricing: PriceTable):
-    ctx = ScanContext(clients=clients, project=project, pricing=pricing)
+def _run_one(spec: CheckSpec, arm: Arm, subscription: str, pricing: PriceTable):
+    """One check against one subscription, refusing to run it blind.
+
+    The registration lookup is cached per subscription, so this costs one call
+    for a whole scan rather than one per pair.
+    """
+    registered = arm.registered_providers(subscription)
+    known = {p.lower() for p in registered}
+    missing = [p for p in spec.providers if p.lower() not in known]
+    if missing:
+        raise ProviderNotRegistered(
+            f"{', '.join(missing)} is not registered on this subscription, so "
+            f"{spec.name} has nothing to read. Register it with "
+            f"'az provider register --namespace {missing[0]}' if that is wrong."
+        )
+    ctx = ScanContext(arm=arm, subscription=subscription, pricing=pricing, providers=registered)
     return list(spec.fn(ctx))
 
 
 def scan(
-    clients: Clients,
-    projects: list[str],
+    arm: Arm,
+    subscriptions: list[str],
     checks: list[CheckSpec],
     pricing: PriceTable,
     max_workers: int = 16,
 ) -> ScanResult:
-    jobs = [(spec, project) for project in projects for spec in checks]
-    result = ScanResult(projects=list(projects), attempted=len(jobs))
+    jobs = [(spec, subscription) for subscription in subscriptions for spec in checks]
+    result = ScanResult(subscriptions=list(subscriptions), attempted=len(jobs))
     if not jobs:
         return result
 
+    # One token per tenant in scope, fetched here, on this thread, before any
+    # worker exists. Minting them lazily from inside the pool would put two
+    # `az` processes on the MSAL token cache at the same moment, which is the
+    # failure this whole credential design is arranged to avoid.
+    arm.prepare(subscriptions)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {
-            pool.submit(_run_one, spec, clients, project, pricing): (spec, project)
-            for spec, project in jobs
+            pool.submit(_run_one, spec, arm, subscription, pricing): (spec, subscription)
+            for spec, subscription in jobs
         }
         for future in concurrent.futures.as_completed(futures):
-            spec, project = futures[future]
+            spec, subscription = futures[future]
             try:
                 result.findings.extend(future.result())
-            except googleapiclient.errors.HttpError as exc:
-                kind = gcp.classify(exc)
-                if kind in ("disabled", "missing"):
-                    # The API is off, or the project is gone. Nothing to find
-                    # and nothing went wrong.
+            except (ArmError, ProviderNotRegistered) as exc:
+                kind = azure.classify(exc)
+                if kind in ("unregistered", "missing"):
+                    # The provider is not switched on, or the subscription is
+                    # gone. Nothing to find and nothing went wrong.
                     result.unavailable += 1
                 elif kind == "forbidden":
                     result.errors.append(
-                        ScanError(project, spec.name, "permission denied: no access")
+                        ScanError(subscription, spec.name, "permission denied: no access")
                     )
                 else:
-                    result.errors.append(ScanError(project, spec.name, gcp.message_of(exc)))
-            except Exception as exc:  # noqa: BLE001 - one bad project must not kill the scan
-                result.errors.append(ScanError(project, spec.name, f"{type(exc).__name__}: {exc}"))
+                    result.errors.append(ScanError(subscription, spec.name, azure.message_of(exc)))
+            except Exception as exc:  # noqa: BLE001 - one bad subscription must not kill the scan
+                result.errors.append(
+                    ScanError(subscription, spec.name, f"{type(exc).__name__}: {exc}")
+                )
 
-    result.findings.sort(key=lambda f: (-f.monthly_cost, f.project, f.location, f.resource_id))
+    result.findings.sort(key=lambda f: (-f.monthly_cost, f.subscription, f.location, f.resource_id))
     return result

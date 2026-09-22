@@ -4,11 +4,16 @@ Every check registers itself with ``@check(...)``. Discovering packs
 (``zombiescan.packs.discover``) imports their check modules, which populates
 this registry as a side effect.
 
-There is no location scope on a check. Compute Engine's ``aggregatedList`` and
-the ``locations/-`` wildcard both answer for every location in one call, so a
-check runs once per project and reads each finding's location off the resource
-it found. A check that genuinely needs to walk locations one at a time loops
-over them itself, using the project and clients it is handed.
+There is no location scope on a check. One Resource Graph query answers for
+every region and every resource group a subscription has, so a check runs once
+per subscription and reads each finding's location off the resource it found.
+
+A check declares the resource provider namespaces it reads. That declaration
+is load-bearing rather than documentation: ARM answers a list call against an
+unregistered provider with an empty page and HTTP 200, so the engine refuses
+to run a check whose provider is missing instead of letting it report a clean
+subscription. The read-only role in ``policy/`` and ``zombiescan providers``
+are generated from the same declaration.
 """
 
 from __future__ import annotations
@@ -29,14 +34,19 @@ class CheckSpec:
     fn: CheckFn
     # Which pack registered this check, for reporting and for --disable-pack.
     pack: str = "core"
-    # Which Google Cloud APIs this check calls. Used to generate the read-only
-    # role in policy/ and to tell an operator which API to enable -- a project
-    # with the API switched off reports nothing, and should say why.
-    apis: tuple[str, ...] = ()
+    # Which Azure resource provider namespaces this check reads, e.g.
+    # ("Microsoft.Compute",). The first one is the check's primary provider:
+    # if it is not registered on a subscription, the check is not run there.
+    providers: tuple[str, ...] = ()
     # Why this finding cannot be cleaned automatically, if it cannot. A check
     # must have either a cleaner or a reason here: "refuse rather than guess"
     # only works if the refusal explains itself.
     uncleanable: str | None = None
+
+    @property
+    def primary_provider(self) -> str:
+        """The provider whose absence means this check has nothing to find."""
+        return self.providers[0] if self.providers else ""
 
 
 CHECKS: dict[str, CheckSpec] = {}
@@ -45,21 +55,21 @@ CHECKS: dict[str, CheckSpec] = {}
 def check(
     name: str,
     title: str,
-    apis: tuple[str, ...] | str = (),
+    providers: tuple[str, ...] | str = (),
     uncleanable: str | None = None,
 ) -> Callable[[CheckFn], CheckFn]:
     """Register a check under ``name``.
 
-    Checks must make list/get calls only. A check that mutates anything is a
-    bug, not a feature request.
+    Checks must make read calls only -- ARM GETs and Resource Graph queries. A
+    check that mutates anything is a bug, not a feature request.
 
     ``uncleanable`` states why this finding cannot be removed automatically.
     Set it instead of writing a cleaner when the safe action genuinely cannot
     be worked out from a list call -- it is reported to the operator verbatim.
     """
 
-    if isinstance(apis, str):
-        apis = (apis,)
+    if isinstance(providers, str):
+        providers = (providers,)
 
     def decorator(fn: CheckFn) -> CheckFn:
         if name in CHECKS:
@@ -69,7 +79,7 @@ def check(
             title=title,
             fn=fn,
             pack=packs.current_pack(),
-            apis=tuple(apis),
+            providers=tuple(providers),
             uncleanable=uncleanable,
         )
         return fn

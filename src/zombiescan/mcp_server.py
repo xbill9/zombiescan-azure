@@ -14,8 +14,8 @@ which filter it applied to get there.
 
 The protocol is JSON-RPC 2.0 over stdio, one message per line, implemented
 against the standard library alone. zombiescan's install has one job -- to
-scan Google Cloud projects -- and an MCP SDK pinned into it is a second thing to keep
-current for the sake of about a hundred lines.
+scan Azure subscriptions -- and an MCP SDK pinned into it is a second thing to
+keep current for the sake of about a hundred lines.
 """
 
 from __future__ import annotations
@@ -38,11 +38,11 @@ PROTOCOL_VERSION = "2025-06-18"
 KNOWN_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 
 INSTRUCTIONS = (
-    "zombiescan finds Google Cloud resources nobody is using and prices them. Every "
-    "tool is read-only; nothing here deletes anything. Run scan_project once, then "
+    "zombiescan finds Azure resources nobody is using and prices them. Every tool "
+    "is read-only; nothing here deletes anything. Run scan_subscription once, then "
     "ask estimate_savings for any total, count or breakdown of the report it "
     "writes -- do not add up findings yourself. Costs are list-price estimates, "
-    "not the project's bill."
+    "not the subscription's bill."
 )
 
 Handler = Callable[[dict[str, Any]], dict[str, Any]]
@@ -74,23 +74,23 @@ def _strings(value: Any) -> list[str]:
     return [str(item) for item in value]
 
 
-def _clients(quota_project: str | None) -> Any:
+def _arm(subscription: str | None) -> Any:
     # Imported here rather than at module scope: `tools/list` and `initialize`
     # must answer without credentials, a network or a price table.
     from zombiescan import engine
 
-    return engine.verify_credentials(quota_project)
+    return engine.verify_credentials(subscription)
 
 
 def _load_report(path: str) -> dict[str, Any]:
-    """A report written by scan_project or by `zombiescan scan --json`."""
+    """A report written by scan_subscription or by `zombiescan scan --json`."""
     from zombiescan import report as report_module
 
     try:
         document = json.loads(pathlib.Path(path).read_text())
     except FileNotFoundError:
         raise ToolError(
-            f"No report at {path}. Run scan_project first, or pass the path of a "
+            f"No report at {path}. Run scan_subscription first, or pass the path of a "
             "report written by `zombiescan scan --json`."
         ) from None
     except json.JSONDecodeError as exc:
@@ -135,7 +135,8 @@ def _brief(finding: dict[str, Any]) -> dict[str, Any]:
     return {
         "check": finding["check"],
         "resource_id": finding["resource_id"],
-        "project": finding["project"],
+        "subscription": finding["subscription"],
+        "resource_group": finding.get("resource_group", ""),
         "location": finding["location"],
         "monthly_cost": finding["monthly_cost"],
     }
@@ -166,7 +167,8 @@ def _filtered(
     """
     checks = set(_strings(args.get("checks")))
     locations = set(_strings(args.get("locations")))
-    projects = set(_strings(args.get("projects")))
+    subscriptions = set(_strings(args.get("subscriptions")))
+    groups = set(_strings(args.get("resource_groups")))
     types = set(_strings(args.get("resource_types")))
     min_cost = float(args.get("min_cost") or 0.0)
     max_cost = args.get("max_cost")
@@ -177,7 +179,8 @@ def _filtered(
         for f in findings
         if (not checks or f["check"] in checks)
         and (not locations or f["location"] in locations)
-        and (not projects or f["project"] in projects)
+        and (not subscriptions or f["subscription"] in subscriptions)
+        and (not groups or f.get("resource_group") in groups)
         and (not types or f.get("resource_type") in types)
         and f["monthly_cost"] >= min_cost
         and (max_cost is None or f["monthly_cost"] <= max_cost)
@@ -186,7 +189,8 @@ def _filtered(
     applied: dict[str, Any] = {
         "checks": sorted(checks) or "any",
         "locations": sorted(locations) or "any",
-        "projects": sorted(projects) or "any",
+        "subscriptions": sorted(subscriptions) or "any",
+        "resource_groups": sorted(groups) or "any",
         "resource_types": sorted(types) or "any",
         "min_monthly_cost": min_cost,
         "max_monthly_cost": max_cost,
@@ -196,7 +200,8 @@ def _filtered(
     for label, wanted, column in (
         ("checks", checks, "check"),
         ("locations", locations, "location"),
-        ("projects", projects, "project"),
+        ("subscriptions", subscriptions, "subscription"),
+        ("resource_groups", groups, "resource_group"),
         ("resource_types", types, "resource_type"),
     ):
         missing = sorted(wanted - {str(f.get(column)) for f in findings})
@@ -211,21 +216,21 @@ def _filtered(
 _SCAN_SCHEMA = {
     "type": "object",
     "properties": {
-        "projects": {
+        "subscriptions": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Projects to scan. Defaults to the one gcloud is configured for.",
+            "description": "Subscriptions to scan. Defaults to the one az is set to.",
         },
-        "all_projects": {
+        "all_subscriptions": {
             "type": "boolean",
-            "description": "Scan every active project these credentials can see. Slower, and "
-            "where forgotten resources usually are.",
+            "description": "Scan every enabled subscription these credentials can see. Slower, "
+            "and where forgotten resources usually are.",
         },
         "locations": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Only report findings in these zones or regions. A region keeps "
-            "its zones.",
+            "description": "Only report findings in these regions, as ARM spells them "
+            "(eastus, not East US). Global resources are always kept.",
         },
         "checks": {
             "type": "array",
@@ -251,14 +256,14 @@ _SCAN_SCHEMA = {
 
 
 @tool(
-    "scan_project",
-    "Scan Google Cloud projects for unused resources and price them. Read-only: list and get "
-    "calls only. Writes a full JSON report and returns the totals, the per-check breakdown "
+    "scan_subscription",
+    "Scan Azure subscriptions for unused resources and price them. Read-only: read calls "
+    "only. Writes a full JSON report and returns the totals, the per-check breakdown "
     "and the costliest findings. Pass the returned report_path to estimate_savings, "
     "explain_finding and plan_cleanup rather than scanning again.",
     _SCAN_SCHEMA,
 )
-def scan_project(args: dict[str, Any]) -> dict[str, Any]:
+def scan_subscription(args: dict[str, Any]) -> dict[str, Any]:
     from zombiescan import engine
     from zombiescan import report as report_module
     from zombiescan.pricing import PriceTable
@@ -266,25 +271,23 @@ def scan_project(args: dict[str, Any]) -> dict[str, Any]:
     disabled = frozenset(_strings(args.get("disable_packs")))
     load_report = engine.load_packs(disabled=disabled)
 
-    wanted_projects = tuple(_strings(args.get("projects")))
+    wanted = tuple(_strings(args.get("subscriptions")))
     try:
-        clients, principal, default_project = _clients(
-            wanted_projects[0] if wanted_projects else None
-        )
+        arm, principal, default_subscription = _arm(wanted[0] if wanted else None)
         selected = engine.select_checks(tuple(_strings(args.get("checks"))), disabled)
-        projects = engine.resolve_projects(
-            clients, wanted_projects, bool(args.get("all_projects")), default_project
+        subscriptions = engine.resolve_subscriptions(
+            arm, wanted, bool(args.get("all_subscriptions")), default_subscription
         )
     except engine.CredentialError as exc:
         raise ToolError(str(exc)) from None
     except ValueError as exc:
         raise ToolError(str(exc)) from None
-    except Exception as exc:  # noqa: BLE001 - an unusable project reads the same way
+    except Exception as exc:  # noqa: BLE001 - an unusable subscription reads the same way
         raise ToolError(f"{type(exc).__name__}: {exc}") from None
 
     pricing = PriceTable.load()
     started = time.monotonic()
-    result = engine.scan(clients, projects, selected, pricing)
+    result = engine.scan(arm, subscriptions, selected, pricing)
     elapsed = time.monotonic() - started
 
     locations = tuple(_strings(args.get("locations")))
@@ -325,7 +328,7 @@ def scan_project(args: dict[str, Any]) -> dict[str, Any]:
 def summarise(document: dict[str, Any], limit: int = 10) -> dict[str, Any]:
     """The parts of a report worth putting in front of an agent.
 
-    A scan of a busy project produces hundreds of findings; returning them all
+    A scan of a busy subscription produces hundreds of findings; returning them all
     inline buries the total. The full set stays in the report file, and every
     number here is computed from it rather than left to be added up.
     """
@@ -335,9 +338,23 @@ def summarise(document: dict[str, Any], limit: int = 10) -> dict[str, Any]:
 
     summary: dict[str, Any] = {
         "principal": scan_meta.get("principal"),
-        "projects_scanned": scan_meta.get("projects", []),
+        "subscriptions_scanned": scan_meta.get("subscriptions", []),
         "complete": scan_meta.get("complete", True),
         "duration_seconds": scan_meta.get("duration_seconds"),
+        # How much of the catalog actually applied. A check whose resource
+        # provider is not registered on the subscription never ran, so a
+        # finding count of zero means "no waste in the services that were
+        # looked at" rather than "no waste". The agent cannot tell the two
+        # apart unless these are handed to it.
+        "coverage": {
+            "pairs_attempted": scan_meta.get("pairs_attempted"),
+            "pairs_skipped_provider_not_registered": scan_meta.get("pairs_unavailable"),
+            "pairs_that_ran": (
+                (scan_meta.get("pairs_attempted") or 0)
+                - (scan_meta.get("pairs_unavailable") or 0)
+                - len(document.get("errors", []))
+            ),
+        },
         "totals": {
             "finding_count": totals.get("finding_count", len(findings)),
             "monthly_cost": totals.get("monthly_cost", 0.0),
@@ -348,7 +365,8 @@ def summarise(document: dict[str, Any], limit: int = 10) -> dict[str, Any]:
             for name, row in (totals.get("by_check") or {}).items()
         ],
         "by_location": _group(findings, "location"),
-        "by_project": _group(findings, "project"),
+        "by_subscription": _group(findings, "subscription"),
+        "by_resource_group": _group(findings, "resource_group"),
         "top_findings": findings[: max(limit, 0)] if limit else findings,
         "pricing_basis": (document.get("pricing") or {}).get("basis"),
         "errors": {
@@ -356,11 +374,20 @@ def summarise(document: dict[str, Any], limit: int = 10) -> dict[str, Any]:
             "first": document.get("errors", [])[:5],
         },
     }
+    skipped = scan_meta.get("pairs_unavailable") or 0
+    attempted = scan_meta.get("pairs_attempted") or 0
+    if skipped and attempted:
+        summary["coverage"]["note"] = (
+            f"{skipped} of {attempted} subscription/check pair(s) did not run: their "
+            "resource provider is not registered on the subscription. Say so alongside "
+            "the total -- no waste found here is not the same as no waste found."
+        )
     if not summary["complete"]:
         # Zero findings from a scan where nothing could be reached is not an
         # all-clear, and an agent will report it as one unless told.
         summary["warning"] = (
-            f"Every one of the {scan_meta.get('pairs_attempted')} project/check pairs failed. "
+            f"Every one of the {scan_meta.get('pairs_attempted')} subscription/check pairs "
+            "failed. "
             "This is not an all-clear: nothing was successfully scanned."
         )
     return summary
@@ -370,10 +397,11 @@ _ESTIMATE_SCHEMA = {
     "type": "object",
     "required": ["report_path"],
     "properties": {
-        "report_path": {"type": "string", "description": "A report from scan_project."},
+        "report_path": {"type": "string", "description": "A report from scan_subscription."},
         "checks": {"type": "array", "items": {"type": "string"}},
         "locations": {"type": "array", "items": {"type": "string"}},
-        "projects": {"type": "array", "items": {"type": "string"}},
+        "subscriptions": {"type": "array", "items": {"type": "string"}},
+        "resource_groups": {"type": "array", "items": {"type": "string"}},
         "resource_types": {"type": "array", "items": {"type": "string"}},
         "min_cost": {"type": "number", "description": "Keep findings at or above this USD/month."},
         "max_cost": {"type": "number", "description": "Keep findings at or below this USD/month."},
@@ -385,7 +413,8 @@ _ESTIMATE_SCHEMA = {
 @tool(
     "estimate_savings",
     "Total, count and break down the findings in a report, with an optional filter by check, "
-    "location, project, resource type or cost. Use this for every 'how much', 'how many' or "
+    "location, subscription, resource group, resource type or cost. Use this for every "
+    "'how much', 'how many' or "
     "'which is "
     "biggest' question instead of adding up findings yourself. Returns the exact figures and "
     "echoes the filter it applied.",
@@ -409,7 +438,8 @@ def estimate_savings(args: dict[str, Any]) -> dict[str, Any]:
         },
         "by_check": _group(matched, "check"),
         "by_location": _group(matched, "location"),
-        "by_project": _group(matched, "project"),
+        "by_subscription": _group(matched, "subscription"),
+        "by_resource_group": _group(matched, "resource_group"),
         "by_resource_type": _group(matched, "resource_type"),
         "matched_findings": matched[: max(limit, 0)] if limit else matched,
         "pricing": document.get("pricing"),
@@ -461,7 +491,7 @@ def explain_finding(args: dict[str, Any]) -> dict[str, Any]:
         if not rows:
             raise ToolError(
                 f"No finding for {args['resource_id']} in {args['report_path']}. "
-                "The scan did not flag it, or the report is from another project."
+                "The scan did not flag it, or the report is from another subscription."
             )
         finding = rows[0]
         check_name = finding["check"]
@@ -485,7 +515,7 @@ def explain_finding(args: dict[str, Any]) -> dict[str, Any]:
         "check": spec.name,
         "title": spec.title,
         "pack": spec.pack,
-        "apis": list(spec.apis),
+        "providers": list(spec.providers),
         "why_it_is_waste": doc or spec.title,
         "cleanable": spec.uncleanable is None and check_name in CLEANERS,
     }
@@ -522,7 +552,7 @@ _LIST_SCHEMA = {
 @tool(
     "list_checks",
     "List the installed checks: what each one looks for, which pack ships it, and whether "
-    "zombiescan can clean the findings it produces. Needs no Google Cloud credentials.",
+    "zombiescan can clean the findings it produces. Needs no Azure credentials.",
     _LIST_SCHEMA,
 )
 def list_checks(args: dict[str, Any]) -> dict[str, Any]:
@@ -545,7 +575,7 @@ def list_checks(args: dict[str, Any]) -> dict[str, Any]:
             "check": name,
             "title": spec.title,
             "pack": spec.pack,
-            "apis": list(spec.apis),
+            "providers": list(spec.providers),
             "cleanable": cleanable,
         }
         if spec.uncleanable:
@@ -564,10 +594,11 @@ _PLAN_SCHEMA = {
     "type": "object",
     "required": ["report_path"],
     "properties": {
-        "report_path": {"type": "string", "description": "A report from scan_project."},
+        "report_path": {"type": "string", "description": "A report from scan_subscription."},
         "checks": {"type": "array", "items": {"type": "string"}},
         "locations": {"type": "array", "items": {"type": "string"}},
-        "projects": {"type": "array", "items": {"type": "string"}},
+        "subscriptions": {"type": "array", "items": {"type": "string"}},
+        "resource_groups": {"type": "array", "items": {"type": "string"}},
         "min_cost": {"type": "number"},
         "limit": {"type": "integer", "description": "Resources to plan. Default 20."},
     },
@@ -593,7 +624,7 @@ def plan_cleanup(args: dict[str, Any]) -> dict[str, Any]:
     limit = int(args.get("limit") or 20)
 
     try:
-        clients, principal, _default = _clients(None)
+        arm, principal, _default = _arm(None)
     except engine.CredentialError as exc:
         raise ToolError(str(exc)) from None
 
@@ -612,13 +643,14 @@ def plan_cleanup(args: dict[str, Any]) -> dict[str, Any]:
     unsupported: list[dict[str, Any]] = []
 
     for row in matched[:limit]:
-        outcome = clean.plan_for(clients, Finding.from_dict(row), pricing)
+        outcome = clean.plan_for(arm, Finding.from_dict(row), pricing)
         if outcome.status == clean.UNSUPPORTED:
             unsupported.append(
                 {
                     "check": row["check"],
                     "resource_id": row["resource_id"],
-                    "project": row["project"],
+                    "subscription": row["subscription"],
+                    "resource_group": row.get("resource_group", ""),
                     "location": row["location"],
                     "monthly_cost": row["monthly_cost"],
                     "reason": outcome.error,
@@ -629,15 +661,16 @@ def plan_cleanup(args: dict[str, Any]) -> dict[str, Any]:
             {
                 "check": row["check"],
                 "resource_id": row["resource_id"],
-                "project": row["project"],
+                "subscription": row["subscription"],
+                "resource_group": row.get("resource_group", ""),
                 "location": row["location"],
                 "monthly_cost": row["monthly_cost"],
                 "irreversible": outcome.irreversible,
                 "steps": [
                     {
                         "description": step.description,
-                        "call": f"{step.api}.{step.operation}",
-                        "params": step.params,
+                        "request": step.summary,
+                        "body": step.body,
                         "irreversible": step.irreversible,
                     }
                     for step in outcome.steps
@@ -684,9 +717,8 @@ def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Run one tool, turning any failure into a tool error rather than a crash.
 
     A tool error is reported in the result, not as a protocol error: the agent
-    needs to read "run gcloud auth application-default login" and act on it,
-    and a JSON-RPC error would
-    tell it only that the call failed.
+    needs to read "run az login" and act on it, and a JSON-RPC error would tell
+    it only that the call failed.
     """
     handler = HANDLERS.get(name)
     if handler is None:

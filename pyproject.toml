@@ -1,25 +1,25 @@
 [project]
-name = "zombiescan-gcp"
+name = "zombiescan-azure"
 version = "0.1.0"
-description = "Find the Google Cloud resources nobody is using, and what they cost you."
+description = "Find the Azure resources nobody is using, and what they cost you."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-    # One discovery-based client covers every GCP API we touch, so a new check
-    # needs a new API name rather than a new dependency. The per-service
-    # google-cloud-* libraries would each bring their own pagination idiom,
-    # which the generic Step runner in clean.py could not drive.
-    "google-api-python-client>=2.130",
-    "google-auth>=2.30",
+    # There is no Azure SDK here on purpose. Credentials come from the `az`
+    # CLI and every call goes to one REST surface -- Azure Resource Manager --
+    # so a new check needs an api-version entry rather than a new dependency.
+    # The azure-mgmt-* libraries would each bring their own client shape and
+    # their own pagination idiom, which the generic Step runner in clean.py
+    # could not drive. HTTP is urllib from the standard library.
     "click>=8.1",
     "rich>=13.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/xbill9/zombiescan-gcp"
-Repository = "https://github.com/xbill9/zombiescan-gcp"
-Issues = "https://github.com/xbill9/zombiescan-gcp/issues"
+Homepage = "https://github.com/xbill9/zombiescan-azure"
+Repository = "https://github.com/xbill9/zombiescan-azure"
+Issues = "https://github.com/xbill9/zombiescan-azure/issues"
 
 [project.scripts]
 zombiescan = "zombiescan.cli:main"
@@ -47,4 +47,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not live'"
-markers = ["live: hits a real GCP project; requires ZOMBIESCAN_LIVE=1"]
+markers = ["live: hits a real Azure subscription; requires ZOMBIESCAN_LIVE=1"]

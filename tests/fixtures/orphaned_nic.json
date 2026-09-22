@@ -1,0 +1,56 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic-old",
+      "name": "web-01-nic-old",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "properties": {
+        "virtualMachine": null,
+        "enableAcceleratedNetworking": false,
+        "networkSecurityGroup": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkSecurityGroups/web-nsg"
+        },
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "publicIPAddress": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/lb-frontend-old"
+              },
+              "subnet": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/web"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/pe-storage-nic",
+      "name": "pe-storage-nic",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "virtualMachine": null,
+        "privateEndpoint": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/privateEndpoints/pe-storage"
+        },
+        "ipConfigurations": []
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic",
+      "name": "web-01-nic",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "virtualMachine": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-01"
+        },
+        "ipConfigurations": []
+      }
+    }
+  ]
+}

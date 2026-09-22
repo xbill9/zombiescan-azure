@@ -1,0 +1,60 @@
+{
+  "Name": "zombiescan Scanner",
+  "IsCustom": true,
+  "Description": "Read-only. Exactly the data actions a zombiescan scan makes: one list or read per resource provider the checks call, and nothing that can change anything.",
+  "permissions": [
+    {
+      "actions": [
+        "Microsoft.Compute/disks/read",
+        "Microsoft.Compute/snapshots/read",
+        "Microsoft.Compute/images/read",
+        "Microsoft.Compute/virtualMachines/read",
+
+        "Microsoft.Network/publicIPAddresses/read",
+        "Microsoft.Network/natGateways/read",
+        "Microsoft.Network/loadBalancers/read",
+        "Microsoft.Network/networkInterfaces/read",
+        "Microsoft.Network/networkSecurityGroups/read",
+        "Microsoft.Network/virtualNetworks/read",
+        "Microsoft.Network/virtualNetworks/subnets/read",
+        "Microsoft.Network/dnszones/read",
+
+        "Microsoft.Web/serverfarms/read",
+
+        "Microsoft.Sql/servers/read",
+        "Microsoft.Sql/servers/databases/read",
+
+        "Microsoft.KeyVault/vaults/read",
+        "Microsoft.KeyVault/vaults/keys/read",
+        "Microsoft.KeyVault/vaults/secrets/read",
+
+        "Microsoft.ContainerRegistry/registries/read",
+        "Microsoft.ContainerRegistry/registries/listUsages/action",
+
+        "Microsoft.ContainerService/managedClusters/read",
+
+        "Microsoft.OperationalInsights/workspaces/read",
+
+        "Microsoft.Storage/storageAccounts/read",
+        "Microsoft.Storage/storageAccounts/blobServices/read",
+        "Microsoft.Storage/storageAccounts/managementPolicies/read",
+
+        "Microsoft.Insights/webtests/read",
+        "Microsoft.Insights/components/read",
+
+        "Microsoft.Resources/subscriptions/read",
+        "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "Microsoft.Resources/subscriptions/resources/read",
+        "Microsoft.Resources/subscriptions/providers/read",
+        "Microsoft.ResourceGraph/resources/read"
+      ],
+      "notActions": [],
+      "dataActions": [],
+      "notDataActions": []
+    }
+  ],
+  "notActions": [],
+  "assignableScopes": [
+    "/subscriptions/REPLACE-WITH-YOUR-SUBSCRIPTION-ID"
+  ]
+}

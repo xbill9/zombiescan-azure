@@ -1,14 +1,16 @@
-"""Subnets with no addresses in use.
+"""Subnets with nothing in them.
 
-A subnet costs nothing. It is reported because it holds an IP range, and a
-range held by a subnet nothing uses is a range that cannot be reused, which is
-how a VPC runs out of address space with nothing running in it. Peering a VPC
-fails the same way: overlapping ranges are rejected whether or not anything
-occupies them.
+A subnet costs nothing. It is reported because the address range it holds is
+not available to anything else while it exists, and a virtual network cannot
+be deleted until every subnet in it is gone. In a peered network an
+overlapping range that nobody is using is the reason the next network cannot
+be attached.
 
-Only subnets in networks running no instances are reported, so a spare subnet
-inside a live VPC -- kept for a workload that has not launched yet -- is left
-alone.
+A subnet is considered empty when it has no IP configurations, no delegation
+to a service that manages its own addresses, no private endpoints and no NAT
+gateway. Each of those is a way for a subnet to be genuinely in use while
+reporting no IP configurations, and treating any of them as empty would
+propose deleting a subnet that is serving traffic.
 """
 
 from __future__ import annotations
@@ -16,69 +18,99 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from zombiescan import gcp, helpers
+from zombiescan import azure, helpers
 from zombiescan.models import Finding, ScanContext
 from zombiescan.registry import check
 
 CHECK_NAME = "unused-subnet"
 
-# Subnets Google creates for its own plumbing. Deleting one breaks the load
-# balancer or the private connection it serves, so they are never reported.
-RESERVED_PURPOSES = frozenset(
-    {
-        "INTERNAL_HTTPS_LOAD_BALANCER",
-        "REGIONAL_MANAGED_PROXY",
-        "GLOBAL_MANAGED_PROXY",
-        "PRIVATE_SERVICE_CONNECT",
-        "PEER_MIGRATION",
-    }
-)
+RESOURCE_TYPE = "Microsoft.Network/virtualNetworks"
+
+# Azure reserves five addresses in every subnet -- network, gateway, two DNS
+# and broadcast -- so a /24 offers 251 usable, not 256. Worth stating in the
+# finding, because "251 addresses reserved against nothing" is the number the
+# operator can act on.
+RESERVED_PER_SUBNET = 5
 
 
-def build_finding(ctx: ScanContext, location: str, subnet: dict[str, Any]) -> Finding:
+def _in_use(subnet: dict[str, Any]) -> bool:
+    properties = helpers.properties(subnet)
+    return bool(
+        properties.get("ipConfigurations")
+        or properties.get("delegations")
+        or properties.get("privateEndpoints")
+        or properties.get("natGateway")
+        or properties.get("serviceAssociationLinks")
+        or properties.get("resourceNavigationLinks")
+    )
+
+
+def _usable(prefix: str) -> int | None:
+    """How many addresses a CIDR prefix actually offers, less Azure's five."""
+    try:
+        bits = int(str(prefix).rsplit("/", 1)[1])
+    except (IndexError, ValueError):
+        return None
+    total = 2 ** (32 - bits) if bits <= 32 else 0
+    return max(total - RESERVED_PER_SUBNET, 0)
+
+
+def build_finding(ctx: ScanContext, network: dict[str, Any], subnet: dict[str, Any]) -> Finding:
     name = subnet["name"]
-    network = gcp.last_segment(subnet.get("network"))
-    ranges = [subnet.get("ipCidrRange")] + [
-        secondary.get("ipCidrRange") for secondary in subnet.get("secondaryIpRanges") or []
-    ]
-    held = [r for r in ranges if r]
+    arm_id = subnet.get("id") or ""
+    group = network.get("resourceGroup") or azure.resource_group_of(network.get("id") or "")
+    location = helpers.location_of(network)
+    properties = helpers.properties(subnet)
+
+    prefix = properties.get("addressPrefix") or (properties.get("addressPrefixes") or [""])[0]
+    usable = _usable(prefix)
+    where = f"{usable} usable address(es)" if usable is not None else "its address range"
 
     return Finding(
         check=CHECK_NAME,
-        resource_id=name,
+        # A subnet name is unique only inside its virtual network, so the
+        # report names both. The ARM id carries the authoritative path.
+        resource_id=f"{network['name']}/{name}",
         resource_type="subnet",
-        project=ctx.project,
+        subscription=ctx.subscription,
+        resource_group=group,
+        arm_id=arm_id,
         location=location,
         reason=(
-            f"Subnet holds {', '.join(held)} in network '{network}', which runs no "
-            f"instances, so the range is reserved against nothing"
+            f"Subnet {prefix} holds nothing -- no IP configuration, delegation, private "
+            f"endpoint or NAT gateway -- while reserving {where}"
         ),
         monthly_cost=0.0,
-        remediation=helpers.gcloud(
-            f"gcloud compute networks subnets delete {helpers.arg(name)}", ctx.project, location
+        remediation=helpers.az(
+            f"az network vnet subnet delete --name {helpers.arg(name)} "
+            f"--vnet-name {helpers.arg(network['name'])}",
+            ctx.subscription,
+            group,
         ),
         details={
-            "network": network,
-            "ip_cidr_range": subnet.get("ipCidrRange"),
-            "secondary_ranges": [
-                {"name": s.get("rangeName"), "range": s.get("ipCidrRange")}
-                for s in subnet.get("secondaryIpRanges") or []
-            ],
-            "purpose": subnet.get("purpose"),
-            "private_ip_google_access": bool(subnet.get("privateIpGoogleAccess")),
-            "note": "subnets are free; this is reported because the IP range cannot be reused",
+            "virtual_network": network["name"],
+            "address_prefix": prefix,
+            "usable_addresses": usable,
+            "network_security_group": azure.name_of(
+                (properties.get("networkSecurityGroup") or {}).get("id")
+            )
+            or None,
+            "route_table": azure.name_of((properties.get("routeTable") or {}).get("id")) or None,
+            "note": (
+                "no charge. Reported because the range is unavailable to anything else "
+                "and the virtual network cannot be deleted while it exists"
+            ),
         },
     )
 
 
-@check(CHECK_NAME, "Subnets reserving ranges nothing uses", apis="compute")
+@check(CHECK_NAME, "Subnets reserving a range against nothing", providers="Microsoft.Network")
 def unused_subnet(ctx: ScanContext) -> Iterator[Finding]:
-    populated = helpers.instances_by_network(ctx)
-    for scope, subnet in gcp.aggregated(
-        ctx.client("compute"), "subnetworks", "subnetworks", project=ctx.project
-    ):
-        if subnet.get("purpose") in RESERVED_PURPOSES:
-            continue
-        if populated.get(gcp.last_segment(subnet.get("network")), 0):
-            continue
-        yield build_finding(ctx, gcp.location_from_scope(scope), subnet)
+    for network in ctx.list(RESOURCE_TYPE):
+        for subnet in helpers.properties(network).get("subnets") or []:
+            # GatewaySubnet and AzureFirewallSubnet are named by Azure and
+            # exist to be empty until the gateway lands in them.
+            if subnet.get("name") in ("GatewaySubnet", "AzureFirewallSubnet", "AzureBastionSubnet"):
+                continue
+            if not _in_use(subnet):
+                yield build_finding(ctx, network, subnet)

@@ -1,44 +1,73 @@
 {
-  "subnetworks": {
-    "items": {
-      "regions/us-central1": {
-        "subnetworks": [
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet",
+      "name": "prod-vnet",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
           {
-            "name": "abandoned-subnet",
-            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/abandoned-vpc",
-            "ipCidrRange": "10.128.0.0/20",
-            "privateIpGoogleAccess": true,
-            "secondaryIpRanges": [
-              { "rangeName": "pods", "ipCidrRange": "10.200.0.0/14" }
-            ]
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/web",
+            "name": "web",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "ipConfigurations": [
+                {
+                  "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic/ipConfigurations/ipconfig1"
+                }
+              ],
+              "networkSecurityGroup": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkSecurityGroups/web-nsg"
+              }
+            }
           },
           {
-            "name": "prod-subnet",
-            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod",
-            "ipCidrRange": "10.0.0.0/20"
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/retired-batch",
+            "name": "retired-batch",
+            "properties": {
+              "addressPrefix": "10.0.9.0/24",
+              "ipConfigurations": [],
+              "networkSecurityGroup": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkSecurityGroups/legacy-web-nsg"
+              },
+              "routeTable": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/routeTables/egress-rt"
+              }
+            }
           },
           {
-            "name": "proxy-only-subnet",
-            "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/abandoned-vpc",
-            "ipCidrRange": "10.129.0.0/23",
-            "purpose": "REGIONAL_MANAGED_PROXY"
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/functions",
+            "name": "functions",
+            "properties": {
+              "addressPrefix": "10.0.8.0/24",
+              "ipConfigurations": [],
+              "delegations": [
+                {
+                  "name": "webapp",
+                  "properties": {
+                    "serviceName": "Microsoft.Web/serverFarms"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/GatewaySubnet",
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "10.0.255.0/27",
+              "ipConfigurations": []
+            }
           }
         ]
       }
     }
-  },
-  "instances": {
-    "items": {
-      "zones/us-central1-a": {
-        "instances": [
-          {
-            "name": "web-1",
-            "networkInterfaces": [
-              { "network": "https://www.googleapis.com/compute/v1/projects/p/global/networks/prod" }
-            ]
-          }
-        ]
-      }
-    }
-  }
+  ]
 }

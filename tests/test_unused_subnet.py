@@ -1,57 +1,47 @@
+"""Subnets reserving a range against nothing."""
+
 from __future__ import annotations
 
-import pytest
-
 from tests.conftest import load_fixture
-from zombiescan.packs.core.unused_subnet import unused_subnet
-
-FIXTURE = load_fixture("unused_subnet")
+from zombiescan.packs.core.unused_subnet import RESOURCE_TYPE, unused_subnet
 
 
-@pytest.fixture
-def findings(make_context):
-    ctx, _ = make_context(
-        {
-            "subnetworks.aggregatedList": FIXTURE["subnetworks"],
-            "instances.aggregatedList": FIXTURE["instances"],
-        }
-    )
-    return {f.resource_id: f for f in unused_subnet(ctx)}
+def _findings(make_context):
+    ctx, arm = make_context({RESOURCE_TYPE: load_fixture("unused_subnet")})
+    return list(unused_subnet(ctx)), arm
 
 
-def test_a_subnet_in_a_network_with_no_instances_is_flagged(findings):
-    assert "abandoned-subnet" in findings
+def test_a_subnet_with_ip_configurations_is_in_use(make_context):
+    findings, _ = _findings(make_context)
+    assert "prod-vnet/web" not in {f.resource_id for f in findings}
 
 
-def test_a_subnet_in_a_live_network_is_left_alone(findings):
-    """A spare subnet in a working VPC may be waiting for a workload."""
-    assert "prod-subnet" not in findings
+def test_a_delegated_subnet_is_in_use_despite_having_no_ip_configurations(make_context):
+    """A delegation hands address management to a service, which then uses it."""
+    findings, _ = _findings(make_context)
+    assert "prod-vnet/functions" not in {f.resource_id for f in findings}
 
 
-def test_a_subnet_google_uses_for_its_own_plumbing_is_never_reported(findings):
-    """Deleting a proxy-only subnet breaks the load balancer it serves."""
-    assert "proxy-only-subnet" not in findings
+def test_azures_own_reserved_subnet_names_are_left_alone(make_context):
+    """GatewaySubnet exists to be empty until a gateway lands in it."""
+    findings, _ = _findings(make_context)
+    assert "prod-vnet/GatewaySubnet" not in {f.resource_id for f in findings}
 
 
-def test_subnets_are_reported_as_hygiene_not_cost(findings):
-    assert findings["abandoned-subnet"].monthly_cost == 0.0
-    assert "cannot be reused" in findings["abandoned-subnet"].details["note"]
+def test_only_the_genuinely_empty_subnet_is_reported(make_context):
+    findings, _ = _findings(make_context)
+    assert {f.resource_id for f in findings} == {"prod-vnet/retired-batch"}
 
 
-def test_the_reason_names_every_range_the_subnet_holds(findings):
-    reason = findings["abandoned-subnet"].reason
-    assert "10.128.0.0/20" in reason
-    assert "10.200.0.0/14" in reason
+def test_the_finding_counts_the_addresses_azure_actually_offers(make_context):
+    """A /24 offers 251, not 256: Azure reserves five in every subnet."""
+    findings, _ = _findings(make_context)
+    assert findings[0].details["usable_addresses"] == 251
+    assert "251 usable address(es)" in findings[0].reason
 
 
-def test_secondary_ranges_are_surfaced_with_their_names(findings):
-    assert findings["abandoned-subnet"].details["secondary_ranges"] == [
-        {"name": "pods", "range": "10.200.0.0/14"}
-    ]
-
-
-def test_deletion_names_the_region(findings):
-    assert findings["abandoned-subnet"].remediation == (
-        "gcloud compute networks subnets delete abandoned-subnet "
-        "--region=us-central1 --project=test-project --quiet"
-    )
+def test_the_command_names_the_network_the_subnet_belongs_to(make_context):
+    """A subnet name is unique only inside its virtual network."""
+    findings, _ = _findings(make_context)
+    assert "--vnet-name prod-vnet" in findings[0].remediation
+    assert "--name retired-batch" in findings[0].remediation

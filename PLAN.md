@@ -1,181 +1,243 @@
 # zombiescan — build plan
 
 **Scope decision:** local only. No hosted site, no publish endpoint. The scan
-runs on the local machine against the local Google Cloud credentials.
+runs on the local machine against the local Azure CLI credentials.
 
 ## What it is
 
-An open-source, local-first Google Cloud waste scanner. It runs on your machine
-with your existing Application Default Credentials, finds resources you are
-paying for that nothing is using, prices them, and prints a report with a
-dollar total.
+An open-source, local-first Azure waste scanner. It runs on your machine with
+your existing `az login`, finds resources you are paying for that nothing is
+using, prices them, and prints a report with a dollar total.
 
-Positioning: not "here are your 14 Persistent Disks" but "9 of these are
-attached to nothing and cost you $47/month; here is the plan to kill them."
+Positioning: not "here are your 14 managed disks" but "9 of these are attached
+to nothing and cost you $47/month; here is the plan to kill them."
 
 Two front doors, one engine:
 
-1. **CLI** — `zombiescan scan --all-projects`
+1. **CLI** — `zombiescan scan --all-subscriptions`
 2. **Claude Code plugin** — a skill plus an MCP server, so the agent can run a
    scan, explain a finding, and draft the cleanup itself
 
-Nothing leaves the machine. No service account key handover, no findings
-uploaded anywhere. That is the whole privacy story and it is a real advantage
-over every SaaS tool in this space.
+Nothing leaves the machine. No service principal handover, no findings uploaded
+anywhere. That is the whole privacy story and it is a real advantage over every
+SaaS tool in this space.
 
-## The unit of fan-out is the project
+## The transport, and why there is no SDK
+
+Credentials come from the `az` CLI; everything after that is Azure Resource
+Manager over HTTPS with `urllib`. The dependency list is `click` and `rich`.
+
+That is a deliberate choice rather than a shortcut. The architecture above the
+client layer — `building.simple_check`, the `Step` runner in `clean.py` — works
+because every service is reached the same way: a path, a pinned `api-version`,
+and a `value`/`nextLink` page. The `azure-mgmt-*` libraries would each bring
+their own client shape and their own pagination idiom, and the generic runner
+could not drive them.
+
+One `az account get-access-token` **per tenant**, every one of them fetched
+single-threaded before any worker exists and refreshed behind a lock, is the
+whole credential story.
+
+Per tenant rather than per scan because an ARM token is issued for exactly one
+directory. Microsoft lets a single email address be both a work or school
+account and a personal Microsoft account, so one person having two tenants is
+ordinary rather than an enterprise edge case — and a scanner holding one token
+would sweep whichever tenant happened to be current and report the other's
+waste as absent. The subscription list therefore comes from `az account list
+--all`, which spans every identity the CLI has signed into, rather than from
+ARM's own `/subscriptions`, which cannot see past its token's tenant.
+
+Each request picks its token by reading the subscription out of its own ARM
+path, so nothing above the client layer has to thread a tenant through.
+Resource Graph is the one exception — its path names no subscription, because
+they go in the body — and it names its tenant explicitly.
+
+## The unit of fan-out is the subscription
 
 This is the one structural difference from an AWS scanner, and it shapes
 everything above the client layer.
 
 Almost every AWS list call is regional, so an AWS scanner must fan out across
-seventeen regions and multiply every check by that. Google Cloud publishes two
-things that remove the need:
+seventeen regions and multiply every check by that. Azure publishes two things
+that remove the need:
 
-- **`aggregatedList`** on Compute Engine returns disks, addresses, instances,
-  routers, subnetworks and forwarding rules across every zone and region in one
-  call.
-- **`locations/-`**, a wildcard accepted by Filestore, Cloud Logging, GKE and
-  others, means every location.
+- **An ARM list call is subscription-wide.**
+  `/subscriptions/<id>/providers/Microsoft.Compute/disks` returns every disk in
+  every resource group in every region, in one call.
+- **Azure Resource Graph** answers a cross-resource-type join in a single KQL
+  query, so a check that needs to know "which NICs have a VM" does not pull two
+  full inventories down to find out.
 
-So a check runs once per project and reads each finding's location off the
-resource. `Finding.location` holds a zone, a region or `global`; `Finding.project`
-is the account-equivalent, because a resource id is unique inside a project and
-nowhere else.
+So a check runs once per subscription and reads each finding's location off the
+resource. `Finding.location` holds a region or `global`. `Finding.subscription`
+is the account-equivalent. `Finding.resource_group` is Azure's own doing: no
+`az` command works without it, so a finding that did not carry one would
+produce a remediation nobody could run.
 
-Two exceptions, both verified against the live API: **Cloud KMS** and
-**Artifact Registry** reject `locations/-`. Those checks enumerate the API's
-locations and walk them in parallel through `helpers.across_locations`.
+## The failure mode the design is built around
+
+**A resource provider that is not registered on a subscription returns an empty
+page with HTTP 200, not an error.**
+
+This is the single most important fact about scanning Azure, because it turns
+"this subscription has never used App Service" into "this subscription has no
+App Service waste" with no signal in between. A scanner that simply made the
+call would report a clean subscription, which is the worst output a tool like
+this can produce.
+
+So:
+
+- Every check declares the resource provider namespaces it reads.
+- `Arm.registered_providers` reads each subscription's registrations once.
+- The engine refuses to run a check whose provider is missing, counts the pair
+  under `pairs_unavailable`, and the report says how many were skipped.
+
+The same declaration generates `zombiescan providers` and the read-only role in
+`policy/`, and the suite fails if any of the three drift apart.
 
 ## The zombie catalog
 
-Each check returns: resource id, project, location, why it is considered waste,
-estimated monthly cost, and a suggested remediation command. The commands are
-printed; `clean` is a separate command that runs them.
+Each check returns: resource id, subscription, resource group, location, why it
+is considered waste, estimated monthly cost, the full ARM id, and a suggested
+`az` command. The commands are printed; `clean` is a separate command that runs
+them.
 
 ### core pack
 
 | Check | Why it's waste | Rough monthly cost |
 | --- | --- | --- |
-| ✅ Unattached Persistent Disks | Billed in full while attached to nothing | $0.04–0.17/GB by type |
-| ✅ Unused static IPs | Billed *higher* when idle than when in use | ~$7.30 each |
-| ✅ Stopped instances | The VM is free, its disks are not | disk cost |
-| ✅ Orphaned snapshots | Source disk gone | ~$0.05/GB |
-| ✅ Unused custom images | Nothing boots from them | ~$0.05/GB |
-| ✅ Idle Cloud NAT | Gateway in a network with no VMs | its reserved IPs only |
-| ✅ Idle forwarding rules | Load balancer with no backends | ~$18/month |
+| ✅ Unattached managed disks | Billed in full while attached to nothing | by tier: $0.60 (P1) to $3,604 (P80) |
+| ✅ Stopped and deallocated VMs | The compute is free, the disks are not | disk cost |
+| ✅ Orphaned snapshots | Source disk gone | ~$0.05/GB, as a ceiling |
+| ✅ Unused managed images | Nothing boots from them | ~$0.05/GB |
+| ✅ Unused public IPs | Billed the same idle as in use | ~$3.65 each |
+| ✅ Idle NAT gateways | Flat hourly fee, subnet or no subnet | **$32.85/month** |
+| ✅ Idle load balancers | Standard SKU pays for its rules regardless | ~$18.25/month |
+| ✅ Orphaned NICs | Blocks deleting the IP, subnet and VNet | $0 (unblocks the rest) |
+| ✅ Unused NSGs | Rules attached to nothing, read as protection | $0 (hygiene) |
 | ✅ Unused subnets | IP range reserved against nothing | $0 (blocks reuse) |
-| ✅ Unused firewall rules | Disabled, or targeting a tag nothing carries | $0 (hygiene) |
-| ✅ Empty VPC networks | Nothing running inside | the priced waste within |
-| ✅ Stopped Cloud SQL instances | Stopped, but storage still bills | storage, ×2 if regional |
-| ✅ Unused Cloud DNS zones | Only the SOA and NS records | $0.20 at the first tier |
-| ✅ Stale secrets | No new version in 90 days | $0.06 per version per replica |
-| ✅ Disabled KMS key versions | Disabling does not stop the charge | $0.06 software, $1.00 HSM |
-| ✅ Idle Filestore | In a network with no compute to mount it | $0.25–0.45/GB |
-| ✅ Stale Artifact Registry repos | No push in 90 days | $0.10/GB (upper bound) |
-| ✅ Unbounded log buckets | Retention never expires | unpriced; reported as growth |
-| ✅ Unmanaged GCS buckets | Versioning on, no lifecycle rule | unpriced; reported as growth |
-| ✅ Unused uptime checks | Monitoring a deleted VM | $0 (the alerts are the cost) |
+| ✅ Empty VNets | Nothing running inside | the priced waste within |
+| ✅ Idle App Service plans | Instances reserved with no app on them | **$110–$440/month** |
+| ✅ Paused SQL databases | Paused, but storage still bills | ~$0.115/GB |
+| ✅ Unused DNS zones | Only the SOA and NS records | $0.50 at the first tier |
+| ✅ Stale Key Vault secrets | No new version in 90 days | $0 — Key Vault bills per operation |
+| ✅ Disabled Key Vault keys | Disabling does not stop the charge | $1.00 HSM, $0 software |
+| ✅ Empty container registries | Tier fee is flat, contents irrelevant | $5 / $20 / $50 by tier |
+| ✅ Unbounded log workspaces | No daily cap, long retention | unpriced; reported as growth |
+| ✅ Unmanaged storage accounts | Versioning on, no lifecycle policy | unpriced; reported as growth |
+| ✅ Unused availability tests | Watching a deleted component | $0 (the alerts are the cost) |
+| ✅ Empty resource groups | Nothing inside | $0 (hygiene) |
 
-### gke pack
+### aks pack
 
 | Check | Why it's waste | Rough monthly cost |
 | --- | --- | --- |
-| ✅ Idle GKE clusters | Management fee charged whatever runs on it | **$73/month** |
+| ✅ Idle AKS clusters | Control plane charged by SKU tier | **$73/month Standard, $0 Free** |
 
-GKE is a separate pack as the proof the seam carries a whole service: its own
-API (`container.googleapis.com`), its own rate section, its own fetcher against
-a SKU family core never looks at.
+AKS is a separate pack as the proof the seam carries a whole service: its own
+resource provider (`Microsoft.ContainerService`), its own rate section, and its
+own fetcher against a meter core never looks at.
 
-**Three findings behave differently from the AWS instinct**, and the checks say
-so rather than leaving the reader to assume:
+**Four findings behave differently from the instinct people bring**, and the
+checks say so rather than leaving the reader to assume:
 
-- **An idle Cloud NAT is nearly free.** Google bills gateway uptime per VM
-  using it. An AWS NAT gateway bills a flat hourly charge regardless, which is
-  why it tops every AWS waste list and does not top this one. What an idle
-  Cloud NAT does cost is the external addresses it holds.
-- **A GKE cluster bills $0.10/hour whatever is on it.** Scaling every node pool
-  to zero removes the node cost and leaves the management fee untouched.
-- **A reserved static IP costs more idle than attached.** One of the few places
-  where the waste is more expensive than the work.
+- **An idle NAT gateway is expensive.** Azure bills it a flat hourly fee the
+  way AWS does — the reverse of Google's Cloud NAT, which bills per VM behind
+  it and so costs almost nothing idle.
+- **An idle AKS cluster may be free.** Only Standard and Premium pay for a
+  control plane. A Free-tier cluster scaled to zero costs nothing, which is the
+  reverse of GKE.
+- **A managed disk is billed by tier, not by gigabyte.** A 1 GiB Premium SSD
+  and a 128 GiB one are both a P10 at the same price. Only Premium SSD v2 and
+  Ultra bill per provisioned GiB.
+- **An unattached public IP costs the same as an attached one**, so nothing in
+  the price signals that it is idle — unlike Google, where a reserved address
+  costs *more* than one in use.
+
+Two checks have no Google Cloud equivalent at all, and both are Azure-shaped:
+**orphaned NICs**, because a Compute Engine network interface is a property of
+its instance and cannot outlive one, and **empty resource groups**, because a
+project is the thing you delete rather than a container inside one.
 
 ## Pricing
 
-Prices come from the **Cloud Billing Catalog API**
-(`cloudbilling.googleapis.com`), read with ADC, and are bundled as
-`table.json` so a scan works offline and adds no latency.
+Prices come from the **Azure Retail Prices API** (`prices.azure.com`), which is
+public — no credentials, no subscription — and are bundled as `table.json` so a
+scan works offline and adds no latency.
 
-The catalog is not organised by product the way the console is: a SKU carries a
-category (resource family, group, usage type), a free-text description, the
-regions it applies to, and a tiered price. Nothing in it says "pd-balanced". So
-each fetcher states the exact family, group and description it matches, and a
+Each fetcher states the exact service, product and meter it matches, and a
 matcher that stops matching yields an empty section — which `main` refuses to
 write over a populated one.
 
-Two traps, both of which fail silently and both of which cost a rebuild to
-find:
+Four traps, all silent, all measured against the live API:
 
-- **Tier 0 is often a free allowance.** The first 30 GB of standard Persistent
-  Disk, the first 0.5 GB of Artifact Registry, the first six secret versions,
-  the first 5 GB of Cloud Storage are all priced at zero. Reading tier 0
-  records the rate as free and prices every finding in the section at nothing.
-  `unit_price()` takes the first tier that charges.
-- **Some SKUs are published against the region `global`.** Cloud NAT addresses,
-  Artifact Registry storage and log retention have no per-region entry at all,
-  and a per-region fetcher returns an empty section for them.
+- **`priceType` must be `Consumption`.** The same meter is also published as
+  `Reservation` and `DevTestConsumption`, at a fraction of the price.
+- **Tier rows come back unordered, and tier 0 is often free.** Log Analytics
+  ingestion is $0.00 up to 5 GB and $2.30 after. Key Vault HSM keys come back
+  as $5.00, $0.90, $2.50, $0.40 for tiers 0, 1500, 250, 4000. `unit_price`
+  sorts by `tierMinimumUnits` and takes the first tier that charges.
+- **The meter name separates capacity from its neighbours.** `P80 LRS Disk` is
+  $3,604.11; `P80 LRS Disk Mount` is $219.00 and `P80 LRS Disk Operations` is
+  fractions of a cent, all under the same SKU name.
+- **Some meters have no ARM region.** NAT Gateway and Load Balancer are
+  published against "Global"; Azure DNS against a billing geography spelled
+  "Zone 1", which is not an availability zone and not an ARM region.
 
-Verified rates in us-central1 at the time of writing: pd-standard $0.04/GB,
-pd-balanced $0.10, pd-ssd $0.17, snapshots and images $0.05, GCS Standard
-$0.020, idle static IP $0.010/hour, forwarding rule minimum $0.025/hour, DNS
-zone $0.20 (tiered to $0.10 past 25), secret version $0.06, KMS software key
-version $0.06 and HSM $1.00, Artifact Registry $0.10/GB, GKE cluster
-$0.10/hour.
+Verified rates in `eastus` at the time of writing: P10 disk $19.71/month, P30
+$135.17, P80 $3,604.11, S4 $1.536, E10 $9.60; Premium SSD v2 $0.081/GiB-month;
+snapshots $0.05/GB; hot LRS blob $0.0208/GB; static public IP $0.005/hour; NAT
+Gateway $0.045/hour; Standard load balancer rules $0.025/hour; App Service P1
+v3 $0.315/hour Windows and $0.155 Linux; SQL General Purpose storage
+$0.115/GB; public DNS zone $0.50 for the first 25; Key Vault HSM key $1.00;
+Container Registry $0.1666/$0.6666/$1.6666 per day; Log Analytics ingestion
+$2.30/GB and retention $0.10/GB-month; AKS Standard $0.10/hour.
 
-**IAM posture:** read-only. `policy/zombiescan-scanner-role.yaml` is a custom
-role holding exactly the list and get permissions the checks use, generated
-from the `apis=` each check declares and kept in step by the suite.
+**RBAC posture:** read-only. `policy/zombiescan-scanner-role.json` is a custom
+role holding exactly the read actions the checks use, generated from the
+`providers=` each check declares and kept in step by the suite.
 
 ## Architecture
 
 ```
 your laptop
 -----------
-Application Default Credentials (gcloud auth application-default login)
-        |  google.auth.default(), refreshed once up front and locked thereafter
+az login
+        |  az account get-access-token, fetched once up front and locked thereafter
         v
-zombiescan engine (python, google-api-python-client)
-  multi-project, parallel, read-only
-  gcp.py        discovery clients (thread-local), pagination, locations
+zombiescan engine (python, stdlib http)
+  multi-subscription, parallel, read-only
+  azure.py      ARM REST, Resource Graph, provider registration, ARM id parsing
   packs/        one module per zombie check, + cleaners.py
   pricing/      bundled price table, rate registry, refresh script
-  engine.py     project fan-out, credential handling
+  engine.py     subscription fan-out, the provider pre-check, credentials
   report.py     terminal table, JSON, remediation script
   cli.py        click entry point
         |
         +--> terminal report (rich table, dollar total)
-        +--> findings.json  (schema_version 3)
+        +--> findings.json  (schema_version 4)
         +--> report.html    (self-contained, print-to-PDF)
         +--> cleanup.sh     (printed, never executed)
         |
         v
 Claude Code plugin
   skill + slash commands + MCP server
-  tools: list_checks, scan_project, estimate_savings, explain_finding, plan_cleanup
+  tools: list_checks, scan_subscription, estimate_savings, explain_finding, plan_cleanup
 ```
 
 **Repo layout**
 
 ```
-zombiescan-gcp/
+zombiescan-azure/
   src/zombiescan/
-    gcp.py        discovery clients, pagination, location parsing
+    azure.py      ARM client, credentials, Resource Graph, id parsing
     packs/        pack manifest, discovery, API version
       core/         one module per zombie check, + cleaners.py
-      gke/          checks, cleaners, rates.py, refresh.py
+      aks/          checks, cleaners, rates.py, refresh.py
     pricing/      bundled price table, rate registry, refresh script
     building.py   simple_check, for checks that are one call and one filter
     helpers.py    shared helpers, public to packs
-    engine.py     project fan-out, credential handling
+    engine.py     subscription fan-out, provider registration, credentials
     report.py     terminal table, JSON, remediation script
     html.py       self-contained HTML report
     clean.py      the plan runner
@@ -186,48 +248,55 @@ zombiescan-gcp/
   tests/          check logic against recorded fixtures
 ```
 
-### One thing that must not regress
+### Two things that must not regress
 
-The client layer crashed the interpreter twice during the build, both times
-with SIGSEGV or a glibc abort rather than an exception, and both causes are
-easy to reintroduce:
+1. **The provider registration pre-check.** Without it, a check against an
+   unregistered provider returns an empty page and the subscription reads as
+   clean. It is not an optimisation and removing it on the grounds that "the
+   call works" is the single worst change that could be made here.
 
-1. **Concurrent `credentials.refresh()`.** Every worker thread finds no token
-   at the start of a scan and refreshes at once; the refresh signs through
-   OpenSSL via cffi and corrupts the heap. `gcp.make_thread_safe` fetches the
-   first token single-threaded and locks later refreshes.
-2. **A discovery client shared between threads.** Its `httplib2` connection is
-   not safe to share. `Clients` keeps them thread-local, and
-   `helpers.across_locations` passes each worker its own rather than letting a
-   callback close over one built in the calling thread.
+2. **The api-version pins.** Azure has no "latest": the version is a required
+   query parameter, and one that has been retired produces
+   `InvalidResourceType`, which is 404-shaped and therefore counted as
+   *unavailable* rather than raised. The check silently stops running. The live
+   test verifies every pin against what ARM currently accepts, because nothing
+   offline can.
 
-Both are documented where they live. Neither is covered by the offline suite,
-because neither reproduces without real concurrency against a real endpoint.
+Neither is covered by the offline suite, because neither reproduces without a
+real subscription.
 
 ## Distribution
 
 MIT on GitHub, installable with `uv tool install git+...` or `pipx`, plus the
-Claude Code plugin in the same repo.
-`.claude-plugin/marketplace.json` at the repo root makes it installable with
-`/plugin marketplace add xbill9/zombiescan-gcp`.
+Claude Code plugin in the same repo. `.claude-plugin/marketplace.json` at the
+repo root makes it installable with
+`/plugin marketplace add xbill9/zombiescan-azure`.
 
 ## Wanted but not built
 
-- **Metric-driven checks** — idle Cloud SQL by connection count, over-provisioned
-  Bigtable, KMS keys unused per audit log. Every check so far answers from a
-  single list call; these need Cloud Monitoring and a lookback window, which is
-  a new capability rather than another row.
-- **Org-level scanning.** `--all-projects` uses Resource Manager's
-  `projects.search`, which covers what the caller can see. Walking a folder
-  hierarchy deliberately, with per-folder totals, is a different shape.
-- **Committed use discount awareness.** Every figure here is list price. A
-  project with a CUD is overcharged by this report, and saying by how much
-  needs the billing export rather than the catalog.
+- **Metric-driven checks** — idle SQL by connection count, over-provisioned
+  Cosmos DB, VMs at 2% CPU, Key Vault keys unused per diagnostic log. Every
+  check so far answers from a single list call; these need Azure Monitor
+  metrics and a lookback window, which is a new capability rather than another
+  row.
+- **Management-group scanning.** `--all-subscriptions` uses ARM's subscription
+  list, which covers what the caller can see. Walking a management-group
+  hierarchy deliberately, with per-group totals, is a different shape.
+- **Reservation and savings-plan awareness.** Every figure here is list price.
+  A subscription with a reservation is overcharged by this report, and saying
+  by how much needs Cost Management exports rather than the retail catalog.
+- **One Resource Graph query across every subscription at once.** Graph can do
+  it, and it would collapse a fifty-subscription scan into one call per check.
+  The per-subscription fan-out is kept because it isolates a permission failure
+  to the subscription that caused it.
 
 ## Open questions
 
-- Cost lookback for "idle" judgements needs Cloud Monitoring metrics; decide
-  the default window (7 days is the usual answer).
-- Whether `--all-projects` should default on. Off is faster and safer; on is
-  what people actually want, because the forgotten resources are always in the
-  project nobody opens.
+- Cost lookback for "idle" judgements needs Azure Monitor metrics; decide the
+  default window (7 days is the usual answer).
+- Whether `--all-subscriptions` should default on. Off is faster and safer; on
+  is what people actually want, because the forgotten resources are always in
+  the subscription nobody opens.
+- Whether `unused-image` should read Azure Compute Gallery versions as well as
+  managed images. It would widen the check to the place images actually live
+  now, at the cost of a second list call and a more complicated reference test.

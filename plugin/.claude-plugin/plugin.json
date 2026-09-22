@@ -1,13 +1,20 @@
 {
   "name": "zombiescan",
-  "description": "Find the Google Cloud resources nobody is using, price them, and plan the cleanup — from inside Claude Code.",
+  "description": "Find the Azure resources nobody is using, price them, and plan the cleanup \u2014 from inside Claude Code.",
   "version": "0.1.0",
   "author": {
     "name": "xbill9",
     "url": "https://github.com/xbill9"
   },
-  "homepage": "https://github.com/xbill9/zombiescan-gcp",
-  "repository": "https://github.com/xbill9/zombiescan-gcp",
+  "homepage": "https://github.com/xbill9/zombiescan-azure",
+  "repository": "https://github.com/xbill9/zombiescan-azure",
   "license": "MIT",
-  "keywords": ["gcp", "google-cloud", "cost", "finops", "cleanup", "waste"]
+  "keywords": [
+    "azure",
+    "arm",
+    "cost",
+    "finops",
+    "cleanup",
+    "waste"
+  ]
 }

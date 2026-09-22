@@ -1,0 +1,82 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/loadBalancers/api-lb",
+      "name": "api-lb",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "tags": {},
+      "properties": {
+        "backendAddressPools": [
+          {
+            "name": "api-pool",
+            "properties": {
+              "backendIPConfigurations": [],
+              "loadBalancerBackendAddresses": []
+            }
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "http"
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "fe"
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/loadBalancers/legacy-lb",
+      "name": "legacy-lb",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "backendAddressPools": [],
+        "loadBalancingRules": [],
+        "frontendIPConfigurations": []
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/loadBalancers/web-lb",
+      "name": "web-lb",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "backendAddressPools": [
+          {
+            "name": "web-pool",
+            "properties": {
+              "backendIPConfigurations": [
+                {
+                  "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic/ipConfigurations/ipconfig1"
+                }
+              ]
+            }
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "http"
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "fe"
+          }
+        ]
+      }
+    }
+  ]
+}

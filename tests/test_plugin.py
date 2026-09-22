@@ -78,9 +78,10 @@ REPORT_FIELDS = {
     "filter_applied",
     "no_such_checks_in_report",
     "approximate_cost",
-    "all_projects",
+    "all_subscriptions",
     "pairs_unavailable",
     "resource_types",
+    "resource_groups",
     "min_cost",
     "max_cost",
 }

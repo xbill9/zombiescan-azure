@@ -1,0 +1,123 @@
+{
+  "accounts": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/buildartifacts",
+        "name": "buildartifacts",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "kind": "StorageV2",
+        "tags": {},
+        "properties": {
+          "accessTier": "Hot"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/managedlogs",
+        "name": "managedlogs",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "kind": "StorageV2",
+        "properties": {
+          "accessTier": "Hot"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/plainstore",
+        "name": "plainstore",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "kind": "StorageV2",
+        "properties": {
+          "accessTier": "Hot"
+        }
+      }
+    ]
+  },
+  "blob_versioned": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/buildartifacts/blobServices/default",
+    "name": "default",
+    "properties": {
+      "isVersioningEnabled": true,
+      "changeFeed": {
+        "enabled": true
+      },
+      "deleteRetentionPolicy": {
+        "enabled": true,
+        "days": 7
+      }
+    }
+  },
+  "blob_plain": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/plainstore/blobServices/default",
+    "name": "default",
+    "properties": {
+      "isVersioningEnabled": false
+    }
+  },
+  "policy_tiering_only": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/buildartifacts/managementPolicies/default",
+    "properties": {
+      "policy": {
+        "rules": [
+          {
+            "name": "cool-old",
+            "enabled": true,
+            "type": "Lifecycle",
+            "definition": {
+              "filters": {
+                "blobTypes": [
+                  "blockBlob"
+                ]
+              },
+              "actions": {
+                "baseBlob": {
+                  "tierToCool": {
+                    "daysAfterModificationGreaterThan": 30
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "policy_prunes": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/managedlogs/managementPolicies/default",
+    "properties": {
+      "policy": {
+        "rules": [
+          {
+            "name": "expire-versions",
+            "enabled": true,
+            "type": "Lifecycle",
+            "definition": {
+              "filters": {
+                "blobTypes": [
+                  "blockBlob"
+                ]
+              },
+              "actions": {
+                "version": {
+                  "delete": {
+                    "daysAfterCreationGreaterThan": 30
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -114,7 +114,8 @@ def _finding_rows(result: ScanResult) -> str:
             classes += " zero"
         rows.append(
             f"<tr>"
-            f"<td>{_cell(finding.project)}</td>"
+            f"<td>{_cell(finding.subscription)}</td>"
+            f"<td>{_cell(finding.resource_group)}</td>"
             f"<td>{_cell(finding.location)}</td>"
             f'<td class="mono">{_cell(finding.resource_id)}</td>'
             f'<td class="mono">{_cell(finding.check)}</td>'
@@ -132,7 +133,7 @@ def _error_section(result: ScanResult) -> str:
     if not result.errors:
         return ""
     rows = "\n".join(
-        f"<tr><td>{_cell(e.project)}</td><td class='mono'>{_cell(e.check)}</td>"
+        f"<tr><td>{_cell(e.subscription)}</td><td class='mono'>{_cell(e.check)}</td>"
         f"<td>{_cell(e.message)}</td></tr>"
         for e in result.errors[:50]
     )
@@ -141,7 +142,7 @@ def _error_section(result: ScanResult) -> str:
     )
     return (
         f"<h2>Could not scan ({len(result.errors)})</h2>"
-        f"<table><thead><tr><th>Project</th><th>Check</th><th>Error</th></tr></thead>"
+        f"<table><thead><tr><th>Subscription</th><th>Check</th><th>Error</th></tr></thead>"
         f"<tbody>{rows}</tbody></table>{more}"
     )
 
@@ -153,15 +154,15 @@ def to_html(
 ) -> str:
     total = result.total_monthly_cost
     generated = dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M UTC")
-    # Every project the scan covered, for the header. A ten-project scan
-    # names them all rather than a count nobody can act on.
-    scanned = ", ".join(result.projects) or "unknown"
+    # Every subscription the scan covered, for the header. A ten-subscription
+    # scan names them all rather than a count nobody can act on.
+    scanned = ", ".join(result.subscriptions) or "unknown"
 
     banner = ""
     if result.completely_failed:
         banner = (
             '<p class="banner"><b>Nothing could be scanned.</b> Every one of the '
-            f"{result.attempted} project/check pairs failed. This report is not an "
+            f"{result.attempted} subscription/check pairs failed. This report is not an "
             "all-clear.</p>"
         )
 
@@ -180,14 +181,14 @@ def to_html(
 <title>zombiescan report — {_cell(scanned)}</title>
 <style>{_CSS}</style></head>
 <body><main>
-<h1>Google Cloud waste report</h1>
-<p class="sub">{len(result.projects)} project(s): {_cell(scanned)}
+<h1>Azure waste report</h1>
+<p class="sub">{len(result.subscriptions)} subscription(s): {_cell(scanned)}
  · scanned as {_cell(principal or "unknown")} · {generated}</p>
 {banner}
 {headline}
 <div class="meta">
   <span><b>{len(result.findings)}</b> findings</span>
-  <span><b>{result.attempted}</b> project/check pairs scanned</span>
+  <span><b>{result.attempted}</b> subscription/check pairs scanned</span>
   <span><b>{len(result.errors)}</b> errors</span>
   <span>prices generated <b>{_cell(pricing_generated or "unknown")}</b></span>
   <span>zombiescan <b>{_cell(__version__)}</b></span>
@@ -199,17 +200,18 @@ def to_html(
 <tbody>{_summary_rows(result)}</tbody></table>
 
 <h2>Findings ({len(result.findings)})</h2>
-<table><thead><tr><th>Project</th><th>Location</th><th>Resource</th><th>Check</th>
+<table><thead><tr><th>Subscription</th><th>Resource group</th><th>Location</th>
+<th>Resource</th><th>Check</th>
 <th class="num">Monthly</th><th>Why</th></tr></thead>
 <tbody>{_finding_rows(result)}</tbody></table>
 
 {_error_section(result)}
 
 <footer>
-<p>Costs are estimates from Google Cloud on-demand list prices, not from your
-bill. They exclude committed use discounts, sustained use discounts, private
-pricing and credits. A <span class="approx">~</span> marks an estimate or an
-upper bound.</p>
+<p>Costs are estimates from Azure pay-as-you-go list prices, not from your
+bill. They exclude reservations, savings plans, Azure Hybrid Benefit, dev/test
+rates, enterprise agreement pricing and credits. A
+<span class="approx">~</span> marks an estimate or an upper bound.</p>
 <p>zombiescan is read-only and deleted nothing. The remediation commands above
 were generated, not executed. Read them before running them.</p>
 </footer>

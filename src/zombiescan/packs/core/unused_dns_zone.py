@@ -1,14 +1,18 @@
-"""Cloud DNS managed zones publishing nothing.
+"""Public DNS zones holding no records.
 
-Every managed zone bills monthly whether or not anything resolves against it.
-A zone created for a project that was never finished holds only the two record
-sets Cloud DNS creates with it -- the SOA and the NS set -- and neither can be
-deleted, so a zone reporting exactly those two is publishing nothing and no
-second judgement call is needed.
+Azure charges per hosted zone per month -- $0.50 for the first 25 in a
+subscription, $0.10 for the ones after that -- plus a charge per million
+queries. A zone created for a domain that was never delegated, or for one
+that moved elsewhere, keeps paying the hosting charge and answers nothing.
 
-The finding is priced at the **marginal** rate. Zones cost $0.20/month for the
-first 25 in a project and less beyond, so removing one from a project with
-thirty saves the second tier's rate, not the headline one.
+A zone is reported when the only record sets in it are the ones Azure created:
+the SOA and the NS set at the apex. Every zone has those and they are not
+billed as record sets, so a zone with exactly two is a zone nobody has put
+anything in.
+
+The saving is the tier the subscription is actually in, not the headline
+first-tier price -- a subscription with thirty zones saves $0.10 by deleting
+one, not $0.50.
 """
 
 from __future__ import annotations
@@ -16,72 +20,69 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from zombiescan import gcp, helpers
+from zombiescan import azure, helpers
 from zombiescan.models import Finding, ScanContext
 from zombiescan.registry import check
 
 CHECK_NAME = "unused-dns-zone"
 
-# The records Cloud DNS creates with every zone and refuses to delete.
-UNDELETABLE_TYPES = frozenset({"SOA", "NS"})
+RESOURCE_TYPE = "Microsoft.Network/dnszones"
+
+# The SOA and the apex NS set, which Azure creates with every zone and
+# charges nothing for.
+BUILT_IN_RECORD_SETS = 2
 
 
-def build_finding(
-    ctx: ScanContext, zone: dict[str, Any], records: list[dict[str, Any]], zone_count: int
-) -> Finding:
+def build_finding(ctx: ScanContext, zone: dict[str, Any], zone_count: int) -> Finding:
     name = zone["name"]
-    price, approximate = ctx.pricing.rate("dns.zone_month", zone_count=zone_count)
-    visibility = (zone.get("visibility") or "public").lower()
-    age = helpers.age_days(zone.get("creationTime"))
+    arm_id = zone.get("id") or ""
+    group = zone.get("resourceGroup") or azure.resource_group_of(arm_id)
+    properties = helpers.properties(zone)
 
-    reason = (
-        f"{visibility.capitalize()} zone '{zone.get('dnsName', '')}' holds only the SOA and "
-        f"NS records Cloud DNS creates with a zone, so it publishes nothing"
-    )
-    if age is not None:
-        reason += f"; created {age} days ago"
+    price, approximate = ctx.pricing.rate("dns.zone_month", zone_count=zone_count)
+    records = int(properties.get("numberOfRecordSets") or 0)
+    tier = "first 25" if zone_count <= 25 else "beyond the first 25"
 
     return Finding(
         check=CHECK_NAME,
         resource_id=name,
         resource_type="dns-zone",
-        project=ctx.project,
-        location=gcp.GLOBAL,
-        reason=reason,
+        subscription=ctx.subscription,
+        resource_group=group,
+        arm_id=arm_id,
+        # A public DNS zone has no region: Azure hosts it on an anycast name
+        # server estate and prices it against a billing geography.
+        location=azure.GLOBAL,
+        reason=(
+            f"DNS zone holds only the SOA and NS records Azure created with it, and is "
+            f"billed as one of this subscription's {zone_count} zone(s)"
+        ),
         monthly_cost=price,
-        remediation=(
-            f"gcloud dns managed-zones delete {helpers.arg(name)} --project={ctx.project} --quiet"
+        remediation=helpers.az(
+            f"az network dns zone delete --name {helpers.arg(name)}", ctx.subscription, group
         ),
         approximate_cost=approximate,
         details={
-            "dns_name": zone.get("dnsName"),
-            "visibility": visibility,
-            "record_set_count": len(records),
-            "record_types": sorted({r.get("type", "") for r in records}),
-            "age_days": age,
-            "zones_in_project": zone_count,
+            "record_sets": records,
+            "name_servers": properties.get("nameServers") or [],
+            "zones_in_subscription": zone_count,
+            "priced_at_tier": tier,
+            "tags": zone.get("tags") or {},
             "note": (
-                "priced at the marginal rate: what deleting one zone from this project "
-                "actually saves, given how many zones it already has"
+                "hosting charge only; DNS queries are billed separately and a zone "
+                "nobody has delegated receives none"
             ),
         },
     )
 
 
-@check(CHECK_NAME, "Cloud DNS zones publishing nothing", apis="dns")
+@check(CHECK_NAME, "DNS zones with no records", providers="Microsoft.Network")
 def unused_dns_zone(ctx: ScanContext) -> Iterator[Finding]:
-    client = ctx.client("dns")
-    zones = list(gcp.paginate(client, "managedZones", key="managedZones", project=ctx.project))
+    zones = list(ctx.list(RESOURCE_TYPE))
+    # The tier depends on how many zones the subscription has in total, not on
+    # how many are empty, so the count comes from the whole list.
+    zone_count = len(zones)
     for zone in zones:
-        records = list(
-            gcp.paginate(
-                client,
-                "resourceRecordSets",
-                key="rrsets",
-                project=ctx.project,
-                managedZone=zone["name"],
-            )
-        )
-        if any(record.get("type") not in UNDELETABLE_TYPES for record in records):
+        if int(helpers.properties(zone).get("numberOfRecordSets") or 0) > BUILT_IN_RECORD_SETS:
             continue
-        yield build_finding(ctx, zone, records, len(zones))
+        yield build_finding(ctx, zone, zone_count)

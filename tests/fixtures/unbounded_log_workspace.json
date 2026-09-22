@@ -1,0 +1,50 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/central-logs",
+      "name": "central-logs",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "properties": {
+        "retentionInDays": 730,
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "workspaceCapping": {
+          "dailyQuotaGb": -1.0
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/capped-logs",
+      "name": "capped-logs",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "retentionInDays": 365,
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "workspaceCapping": {
+          "dailyQuotaGb": 10.0
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/short-logs",
+      "name": "short-logs",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "retentionInDays": 30,
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "workspaceCapping": {
+          "dailyQuotaGb": -1.0
+        }
+      }
+    }
+  ]
+}

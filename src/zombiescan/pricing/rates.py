@@ -13,10 +13,16 @@ something core has never heard of without a method being added to
 
 Four shapes cover almost everything:
 
-    flat        {region: price}                     -- Artifact Registry
-    hourly      {region: price}, x hours_per_month  -- static IP
-    variants    {region: {variant: price}}          -- disks by type
-    global      price with no region at all         -- Cloud DNS zones
+    flat        {region: price}                     -- blob storage
+    hourly      {region: price}, x hours_per_month  -- public IP
+    variants    {region: {variant: price}}          -- disks by tier
+    global      price with no region at all         -- NAT Gateway
+
+That last shape is not a rounding of the truth on Azure. A NAT Gateway, a
+load balancer rule and a DNS zone are all published in the Retail Prices API
+against ``armRegionName`` values that are not ARM regions at all -- "Global",
+or a billing geography like "Zone 1" -- and have no per-region entry to fall
+back to. A regional lookup for one of them finds nothing.
 
 Anything stranger registers a resolver function with ``register_resolver``.
 """
@@ -101,55 +107,93 @@ def _register_core_rates() -> None:
     for spec in (
         # --- flat per-region storage rates ---------------------------------
         RateSpec("snapshot.gb_month", "snapshot_gb_month"),
-        RateSpec("image.gb_month", "image_gb_month"),
-        RateSpec("gcs.gb_month", "gcs_gb_month"),
+        RateSpec("blob.gb_month", "blob_gb_month"),
         # --- hourly rates billed by uptime ---------------------------------
-        RateSpec("static_ip.month", "static_ip_hour", per_hour=True),
-        RateSpec("forwarding_rule.month", "forwarding_rule_hour", per_hour=True),
-        # --- global: Google charges one rate everywhere --------------------
-        RateSpec("artifact.gb_month", "artifact_gb_month", scope="global"),
+        RateSpec("public_ip.month", "public_ip_hour", per_hour=True),
+        # --- global: one rate, no per-region entry to fall back to ---------
+        # Azure publishes both of these against armRegionName "Global". A
+        # NAT Gateway bills its hourly fee whether or not a single VM sits
+        # behind it, which is the opposite of how Cloud NAT bills and the
+        # same as an AWS NAT gateway.
+        RateSpec("nat_gateway.month", "nat_gateway_hour", per_hour=True, scope="global"),
+        RateSpec("load_balancer.month", "load_balancer_hour", per_hour=True, scope="global"),
+        RateSpec("log.ingestion_gb", "log_ingestion_gb", scope="global"),
         RateSpec("log.retention_gb_month", "log_retention_gb_month", scope="global"),
-        RateSpec("nat_ip.month", "nat_ip_hour", per_hour=True, scope="global"),
         # --- keyed by a variant --------------------------------------------
-        # An unknown disk type is priced as pd-balanced, which has been the
-        # default for `gcloud compute disks create` since 2021.
-        RateSpec("disk.gb_month", "disk_gb_month", variants=True, default_variant="pd-balanced"),
-        # Cloud SQL defaults to SSD storage and most instances never change it.
+        # A managed disk is billed by the tier its provisioned size falls in,
+        # flat per month: a P10 costs the same whether it holds 1 GiB or 128.
+        # There is no sensible default -- pricing an unknown tier as some
+        # other tier would be wrong by up to three orders of magnitude -- so
+        # an unrecognised one is reported as unpriced instead.
+        RateSpec("disk.tier_month", "disk_tier_month", variants=True),
+        # Premium SSD v2 and Ultra are the two SKUs billed per provisioned
+        # GiB rather than by tier.
+        RateSpec("disk.gb_month", "disk_gb_month", variants=True),
+        # SQL Database's General Purpose tier is the default and by far the
+        # most common.
         RateSpec(
-            "sql.storage_gb_month", "sql_storage_gb_month", variants=True, default_variant="ssd"
-        ),
-        # A software key version is the common case; HSM keys are opt-in.
-        RateSpec(
-            "kms.key_version_month",
-            "kms_key_version_month",
+            "sql.storage_gb_month",
+            "sql_storage_gb_month",
             variants=True,
-            default_variant="software",
+            default_variant="general_purpose",
         ),
-        RateSpec("filestore.gb_month", "filestore_gb_month", variants=True),
+        RateSpec("app_service.month", "app_service_hour", per_hour=True, variants=True),
         # --- global, no region layer ---------------------------------------
-        RateSpec("secret.version_month", "secret_version_month", scope="global"),
+        # A software-protected key in a Standard vault is free: Key Vault
+        # bills per operation, not per key. Only HSM-protected keys carry a
+        # per-key monthly charge, which is why the disabled-key check prices
+        # those and reports the rest as hygiene.
+        RateSpec(
+            "keyvault.key_month",
+            "keyvault_key_month",
+            variants=True,
+            scope="global",
+        ),
     ):
         register_rate(spec)
+
+    # Container Registry bills a flat daily fee per registry by tier, with no
+    # per-GB component until the tier's included storage runs out -- so an
+    # empty Premium registry costs exactly as much as a full one. A rate
+    # published per *day* needs a month of days rather than the month of
+    # hours ``per_hour`` would give it, which is why this is a resolver and
+    # not a spec.
+    register_resolver("acr.registry_month", _acr_registry_month)
+
+
+_DAYS_PER_MONTH = 730 / 24
+
+
+def _acr_registry_month(table: Any, sku: str = "Basic") -> tuple[float, bool]:
+    """A container registry's monthly tier fee, from a rate published per day."""
+    rates = table.section("acr_registry_day") or {}
+    price = rates.get(sku)
+    if price is None:
+        return 0.0, True
+    return float(price) * _DAYS_PER_MONTH, False
 
 
 _register_core_rates()
 
 
 def _dns_zone(table: Any, zone_count: int = 1) -> tuple[float, bool]:
-    """What deleting one managed zone actually saves.
+    """What deleting one public DNS zone actually saves.
 
-    Cloud DNS bills zones in tiers -- the first 25 cost $0.20/month each and
-    the ones after them less -- so the saving is the rate of the tier the
-    project is actually in, not the headline first-tier price. An account with
-    thirty zones saves the second tier's rate by deleting one.
+    Azure DNS bills zones in tiers -- the first 25 cost $0.50/month each and
+    the ones after them $0.10 -- so the saving is the rate of the tier the
+    subscription is actually in, not the headline first-tier price. A
+    subscription with thirty zones saves the second tier's rate by deleting
+    one.
+
+    The zone rate has no ARM region. Azure publishes it against a billing
+    geography spelled "Zone 1", which shares a word with availability zones
+    and means something else entirely, so it is stored as a global section.
     """
     tiers = table.section("dns_zone_month") or {}
     if not tiers:
         return 0.0, True
-    if zone_count > 10000 and "additional" in tiers:
-        return float(tiers["additional"]), False
-    if zone_count > 25 and "next_9975" in tiers:
-        return float(tiers["next_9975"]), False
+    if zone_count > 25 and "beyond_25" in tiers:
+        return float(tiers["beyond_25"]), False
     if "first_25" in tiers:
         return float(tiers["first_25"]), False
     return float(next(iter(tiers.values()))), True

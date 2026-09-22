@@ -16,7 +16,7 @@ from zombiescan.engine import (
     CredentialError,
     filter_locations,
     load_packs,
-    resolve_projects,
+    resolve_subscriptions,
     scan,
     select_checks,
     verify_credentials,
@@ -29,10 +29,10 @@ from zombiescan.registry import CHECKS
 @click.group()
 @click.version_option(__version__, prog_name="zombiescan")
 def main() -> None:
-    """Find the Google Cloud resources nobody is using, and what they cost you.
+    """Find the Azure resources nobody is using, and what they cost you.
 
-    Read-only: zombiescan makes list and get calls only and never deletes
-    anything.
+    Read-only: zombiescan makes read calls only and never deletes anything.
+    Credentials come from the Azure CLI, so `az login` is the only setup.
     """
 
 
@@ -80,43 +80,60 @@ def list_packs() -> None:
     console.print(f"[dim]pack API v{packs.PACK_API_VERSION}[/dim]")
 
 
-@main.command("apis")
-def list_apis() -> None:
-    """List the Google Cloud APIs the checks need enabled."""
+@main.command("providers")
+def list_providers() -> None:
+    """List the Azure resource providers the checks read."""
     console = Console()
     _load(console)
-    by_api: dict[str, list[str]] = {}
+    by_provider: dict[str, list[str]] = {}
     for spec in CHECKS.values():
-        for api in spec.apis:
-            by_api.setdefault(api, []).append(spec.name)
-    for api, checks in sorted(by_api.items()):
-        console.print(f"  [bold]{api}.googleapis.com[/bold]  [dim]{len(checks)} check(s)[/dim]")
+        for provider in spec.providers:
+            by_provider.setdefault(provider, []).append(spec.name)
+    for provider, checks in sorted(by_provider.items()):
+        console.print(f"  [bold]{provider}[/bold]  [dim]{len(checks)} check(s)[/dim]")
     console.print(
-        "\n[dim]An API that is not enabled on a project is skipped, not reported as an "
-        "error: a project that never used a service has no waste in it.[/dim]"
+        "\n[dim]A provider that is not registered on a subscription is skipped, not "
+        "reported as an error: a subscription that never used a service has no waste "
+        "in it. zombiescan checks registration first because ARM answers an "
+        "unregistered provider's list call with an empty page rather than an error, "
+        "which would otherwise read as a clean subscription.[/dim]"
     )
 
 
-def _credentials(console: Console, quota_project: str | None):
+def _tenant_note(arm, subscriptions: list[str]) -> str:
+    """ " across 2 tenants", when the scan actually spans more than one.
+
+    Worth saying out loud: a scan covering two directories is the normal shape
+    when one email address is both a work account and a personal one, and the
+    operator has no other way to tell that both were reached.
+    """
+    tenants = {arm.tenant_of(subscription) for subscription in subscriptions}
+    tenants.discard("")
+    return f" across {len(tenants)} tenants" if len(tenants) > 1 else ""
+
+
+def _credentials(console: Console, subscription: str | None, refresh: bool = False):
     try:
-        return verify_credentials(quota_project)
+        return verify_credentials(subscription, refresh=refresh)
     except CredentialError as exc:
         console.print(f"[red]{exc}[/red]")
         sys.exit(2)
 
 
 @main.command()
-@click.option("--project", "projects", multiple=True, help="Project to scan (repeatable).")
 @click.option(
-    "--all-projects",
+    "--subscription", "subscriptions", multiple=True, help="Subscription to scan (repeatable)."
+)
+@click.option(
+    "--all-subscriptions",
     is_flag=True,
-    help="Scan every active project these credentials can see.",
+    help="Scan every enabled subscription the Azure CLI has signed into, across tenants.",
 )
 @click.option(
     "--location",
     "locations",
     multiple=True,
-    help="Only report findings in this zone or region (repeatable). A region keeps its zones.",
+    help="Only report findings in this region (repeatable). Global resources are always kept.",
 )
 @click.option("--check", "checks", multiple=True, help="Run only this check (repeatable).")
 @click.option("--disable-pack", multiple=True, help="Do not load this pack (repeatable).")
@@ -138,8 +155,8 @@ def _credentials(console: Console, quota_project: str | None):
     help="Rows in the detail table; 0 shows every finding.",
 )
 def scan_command(
-    projects: tuple[str, ...],
-    all_projects: bool,
+    subscriptions: tuple[str, ...],
+    all_subscriptions: bool,
     locations: tuple[str, ...],
     checks: tuple[str, ...],
     disable_pack: tuple[str, ...],
@@ -153,10 +170,12 @@ def scan_command(
     console = Console()
     _load(console, disable_pack)
 
-    clients, principal, default_project = _credentials(console, projects[0] if projects else None)
+    arm, principal, default_subscription = _credentials(
+        console, subscriptions[0] if subscriptions else None, refresh=all_subscriptions
+    )
     try:
         selected = select_checks(checks, frozenset(disable_pack))
-        target_projects = resolve_projects(clients, projects, all_projects, default_project)
+        targets = resolve_subscriptions(arm, subscriptions, all_subscriptions, default_subscription)
     except CredentialError as exc:
         console.print(f"[red]{exc}[/red]")
         sys.exit(2)
@@ -166,13 +185,14 @@ def scan_command(
 
     console.print(f"[dim]Scanning as {principal}[/dim]")
     console.print(
-        f"[dim]{len(target_projects)} project(s), {len(selected)} check(s) — read-only[/dim]"
+        f"[dim]{len(targets)} subscription(s){_tenant_note(arm, targets)}, "
+        f"{len(selected)} check(s) — read-only[/dim]"
     )
 
     pricing = PriceTable.load()
     started = time.monotonic()
     with console.status("Scanning..."):
-        result = scan(clients, target_projects, selected, pricing)
+        result = scan(arm, targets, selected, pricing)
     elapsed = time.monotonic() - started
 
     if locations:
@@ -213,7 +233,7 @@ def scan_command(
         )
 
     # A scan where every single call failed found nothing because it looked at
-    # nothing. Exiting 0 would tell a CI job the project is clean.
+    # nothing. Exiting 0 would tell a CI job the subscription is clean.
     if result.completely_failed:
         sys.exit(1)
 
@@ -236,19 +256,23 @@ def _describe(outcome: clean.Outcome, console: Console) -> None:
     cost = f"${outcome.finding.monthly_cost:,.2f}/mo"
     console.print(
         f"\n[bold]{outcome.finding.check}[/bold]  {outcome.finding.resource_id}  "
-        f"[dim]{outcome.finding.project} · {outcome.finding.location} · {cost}[/dim]"
+        f"[dim]{outcome.finding.resource_group} · {outcome.finding.location} · {cost}[/dim]"
     )
     console.print(f"  [dim]{outcome.finding.reason}[/dim]")
     for step in outcome.steps:
         mark = "[red]IRREVERSIBLE[/red] " if step.irreversible else ""
         console.print(f"    → {mark}{step.description}")
-        console.print(f"      [dim]{step.api}.{step.operation}({step.params})[/dim]")
+        console.print(f"      [dim]{step.summary}[/dim]")
 
 
 @main.command("clean")
-@click.option("--project", "projects", multiple=True, help="Project to scan (repeatable).")
 @click.option(
-    "--all-projects", is_flag=True, help="Scan every active project these credentials can see."
+    "--subscription", "subscriptions", multiple=True, help="Subscription to scan (repeatable)."
+)
+@click.option(
+    "--all-subscriptions",
+    is_flag=True,
+    help="Scan every enabled subscription the Azure CLI has signed into, across tenants.",
 )
 @click.option("--check", "checks", multiple=True, help="Only this check (repeatable).")
 @click.option("--disable-pack", multiple=True, help="Do not load this pack (repeatable).")
@@ -270,8 +294,8 @@ def _describe(outcome: clean.Outcome, console: Console) -> None:
 @click.option("--yes", is_flag=True, help="Do not ask before each resource.")
 @click.option("--audit", "audit_path", default=None, help="Write a record of what was done.")
 def clean_command(
-    projects: tuple[str, ...],
-    all_projects: bool,
+    subscriptions: tuple[str, ...],
+    all_subscriptions: bool,
     checks: tuple[str, ...],
     disable_pack: tuple[str, ...],
     min_cost: float,
@@ -282,13 +306,16 @@ def clean_command(
 ) -> None:
     """Delete the resources a scan found.
 
-    Dry run by default: it prints the exact calls it would make and changes
-    nothing. --apply performs them, asking before each resource unless --yes.
+    Dry run by default: it prints the exact ARM requests it would send and
+    changes nothing. --apply performs them, asking before each resource
+    unless --yes.
     """
     console = Console()
     _load(console, disable_pack)
 
-    clients, principal, default_project = _credentials(console, projects[0] if projects else None)
+    arm, principal, default_subscription = _credentials(
+        console, subscriptions[0] if subscriptions else None, refresh=all_subscriptions
+    )
     pricing = PriceTable.load()
 
     if from_path:
@@ -306,21 +333,23 @@ def clean_command(
                 f"{principal}.[/red] Re-scan with these credentials."
             )
             sys.exit(2)
-        # A report names the projects it covered, and each finding carries its
-        # own. Cleaning a project the operator did not ask for is exactly the
-        # accident --project exists to prevent.
-        if projects:
-            findings = [f for f in findings if f.project in set(projects)]
+        # A report names the subscriptions it covered, and each finding
+        # carries its own. Cleaning a subscription the operator did not ask
+        # for is exactly the accident --subscription exists to prevent.
+        if subscriptions:
+            findings = [f for f in findings if f.subscription in set(subscriptions)]
     else:
         try:
             selected = select_checks(checks, frozenset(disable_pack))
-            target_projects = resolve_projects(clients, projects, all_projects, default_project)
+            targets = resolve_subscriptions(
+                arm, subscriptions, all_subscriptions, default_subscription
+            )
         except (CredentialError, ValueError) as exc:
             console.print(f"[red]{exc}[/red]")
             sys.exit(2)
-        console.print(f"[dim]Scanning as {principal} — {len(target_projects)} project(s)[/dim]")
+        console.print(f"[dim]Scanning as {principal} — {len(targets)} subscription(s)[/dim]")
         with console.status("Scanning..."):
-            result = scan(clients, target_projects, selected, pricing)
+            result = scan(arm, targets, selected, pricing)
         if result.completely_failed:
             console.print(
                 f"[red]Nothing could be scanned — all {result.attempted} pairs failed. "
@@ -337,7 +366,7 @@ def clean_command(
         console.print("\n[green]Nothing to clean.[/green]")
         return
 
-    outcomes = [clean.plan_for(clients, f, pricing) for f in findings]
+    outcomes = [clean.plan_for(arm, f, pricing) for f in findings]
     actionable = [o for o in outcomes if o.status == clean.PLANNED]
     unsupported = [o for o in outcomes if o.status == clean.UNSUPPORTED]
 
@@ -389,7 +418,7 @@ def clean_command(
                 outcome.status = clean.SKIPPED
                 console.print("  [dim]skipped[/dim]")
                 continue
-        clean.apply_outcome(outcome, clients)
+        clean.apply_outcome(outcome, arm)
         if outcome.status == clean.APPLIED:
             console.print("  [green]done[/green]")
         else:

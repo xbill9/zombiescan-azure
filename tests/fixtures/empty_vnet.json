@@ -1,0 +1,78 @@
+{
+  "vnets": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/abandoned-vnet",
+        "name": "abandoned-vnet",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "10.9.0.0/16"
+            ]
+          },
+          "virtualNetworkPeerings": [],
+          "subnets": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/abandoned-vnet/subnets/default",
+              "name": "default",
+              "properties": {
+                "addressPrefix": "10.9.0.0/24",
+                "ipConfigurations": [],
+                "privateEndpoints": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet",
+        "name": "prod-vnet",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "10.0.0.0/16"
+            ]
+          },
+          "subnets": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/web",
+              "name": "web",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "nat": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/natGateways/abandoned-gw",
+        "name": "abandoned-gw",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard"
+        },
+        "properties": {
+          "subnets": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/abandoned-vnet/subnets/default"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

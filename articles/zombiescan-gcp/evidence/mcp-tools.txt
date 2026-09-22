@@ -1,8 +1,0 @@
-# MCP tools on zombiescan-mcp, tools/list over stdio, 2026-09-21
-# 5 tool(s)
-
-  scan_project  Scan Google Cloud projects for unused resources and price them. Read-only: lis
-  estimate_savings  Total, count and break down the findings in a report, with an optional filter 
-  explain_finding  Explain why a check treats a resource as waste, how its cost is worked out, an
-  list_checks  List the installed checks: what each one looks for, which pack ships it, and w
-  plan_cleanup  Show exactly what `zombiescan clean` would do to the findings in a report: the

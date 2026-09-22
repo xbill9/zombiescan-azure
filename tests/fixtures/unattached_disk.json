@@ -1,77 +1,92 @@
 {
-  "items": {
-    "zones/us-central1-a": {
-      "disks": [
-        {
-          "name": "orphaned-build-cache",
-          "sizeGb": "100",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/diskTypes/pd-balanced",
-          "status": "READY",
-          "creationTimestamp": "2025-01-15T10:00:00.000-08:00",
-          "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
-          "labels": { "team": "platform" },
-          "sourceImage": "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-12-bookworm-v20250115"
-        },
-        {
-          "name": "attached-boot-disk",
-          "sizeGb": "50",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/diskTypes/pd-balanced",
-          "status": "READY",
-          "creationTimestamp": "2025-03-01T10:00:00.000-08:00",
-          "users": [
-            "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/web-1"
-          ]
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/orphan-data",
+      "name": "orphan-data",
+      "type": "microsoft.compute/disks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Premium_LRS",
+        "tier": "Premium"
+      },
+      "tags": {
+        "owner": "platform"
+      },
+      "properties": {
+        "diskSizeGB": 128,
+        "diskState": "Unattached",
+        "osType": null,
+        "timeCreated": "2025-02-11T09:15:00.1234567Z",
+        "creationData": {
+          "createOption": "Empty"
         }
-      ]
+      }
     },
-    "zones/us-central1-b": {
-      "disks": [
-        {
-          "name": "big-standard-scratch",
-          "sizeGb": "500",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/pd-standard",
-          "status": "READY",
-          "creationTimestamp": "2024-06-01T08:30:00.000-07:00"
-        },
-        {
-          "name": "fast-hyperdisk",
-          "sizeGb": "200",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/hyperdisk-balanced",
-          "status": "READY",
-          "provisionedIops": "5000",
-          "creationTimestamp": "2025-09-01T12:00:00.000-07:00"
-        },
-        {
-          "name": "future-disk-type",
-          "sizeGb": "8",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/diskTypes/pd-futuretype",
-          "status": "READY",
-          "creationTimestamp": "2025-09-10T12:00:00.000-07:00"
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/tiny-scratch",
+      "name": "tiny-scratch",
+      "type": "microsoft.compute/disks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Premium_LRS"
+      },
+      "properties": {
+        "diskSizeGB": 4,
+        "diskState": "Unattached",
+        "timeCreated": "2026-08-01T00:00:00Z",
+        "creationData": {
+          "createOption": "Empty"
         }
-      ]
+      }
     },
-    "zones/europe-west1-b": {
-      "disks": [
-        {
-          "name": "eu-leftover",
-          "sizeGb": "100",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/europe-west1-b/diskTypes/pd-balanced",
-          "status": "READY",
-          "creationTimestamp": "2025-02-01T10:00:00.000Z"
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/v2-orphan",
+      "name": "v2-orphan",
+      "type": "microsoft.compute/disks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "properties": {
+        "diskSizeGB": 200,
+        "diskState": "Unattached",
+        "creationData": {
+          "createOption": "Empty"
         }
-      ]
+      }
     },
-    "zones/asia-south2-a": {
-      "disks": [
-        {
-          "name": "unpriced-region-disk",
-          "sizeGb": "10",
-          "type": "https://www.googleapis.com/compute/v1/projects/test-project/zones/asia-south2-a/diskTypes/pd-balanced",
-          "status": "READY",
-          "creationTimestamp": "2025-05-01T10:00:00.000Z"
-        }
-      ]
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/web-01-os",
+      "name": "web-01-os",
+      "type": "microsoft.compute/disks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Premium_LRS"
+      },
+      "managedBy": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-01",
+      "properties": {
+        "diskSizeGB": 128,
+        "diskState": "Attached"
+      }
     },
-    "zones/us-west1-a": { "warning": { "code": "NO_RESULTS_ON_PAGE", "message": "no results" } }
-  }
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/pool-member",
+      "name": "pool-member",
+      "type": "microsoft.compute/disks",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Premium_LRS"
+      },
+      "properties": {
+        "diskSizeGB": 128,
+        "diskState": "Unattached",
+        "managedBy": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.StoragePool/diskPools/pool-1"
+      }
+    }
+  ]
 }

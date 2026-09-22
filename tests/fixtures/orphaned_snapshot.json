@@ -1,56 +1,75 @@
 {
-  "disks": {
-    "items": {
-      "zones/us-central1-a": {
-        "disks": [{ "name": "live-disk", "id": "111111", "sizeGb": "100" }]
-      }
-    }
-  },
   "snapshots": {
-    "items": [
+    "value": [
       {
-        "name": "backup-of-deleted-db",
-        "storageBytes": "10737418240",
-        "diskSizeGb": "200",
-        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/old-db",
-        "sourceDiskId": "999999",
-        "creationTimestamp": "2024-03-01T10:00:00.000Z",
-        "storageLocations": ["us-central1"],
-        "labels": { "keep": "no" }
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/snapshots/pre-upgrade-2025",
+        "name": "pre-upgrade-2025",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "tags": {},
+        "properties": {
+          "diskSizeGB": 512,
+          "incremental": false,
+          "timeCreated": "2025-03-04T11:00:00Z",
+          "creationData": {
+            "createOption": "Copy",
+            "sourceResourceId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/deleted-disk"
+          }
+        }
       },
       {
-        "name": "backup-of-live-disk",
-        "storageBytes": "5368709120",
-        "diskSizeGb": "100",
-        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/live-disk",
-        "sourceDiskId": "111111",
-        "creationTimestamp": "2025-09-01T10:00:00.000Z",
-        "storageLocations": ["us-central1"]
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/snapshots/nightly-web01",
+        "name": "nightly-web01",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "tags": {},
+        "properties": {
+          "diskSizeGB": 128,
+          "incremental": true,
+          "timeCreated": "2026-09-01T02:00:00Z",
+          "creationData": {
+            "createOption": "Copy",
+            "sourceResourceId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/web-01-os"
+          }
+        }
       },
       {
-        "name": "recreated-name-collision",
-        "storageBytes": "2147483648",
-        "diskSizeGb": "50",
-        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/live-disk",
-        "sourceDiskId": "222222",
-        "creationTimestamp": "2023-01-01T10:00:00.000Z",
-        "storageLocations": ["us-central1"]
-      },
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/snapshots/from-vhd",
+        "name": "from-vhd",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 64,
+          "creationData": {
+            "createOption": "Import"
+          }
+        }
+      }
+    ]
+  },
+  "disks": {
+    "value": [
       {
-        "name": "imported-snapshot-no-source",
-        "storageBytes": "1073741824",
-        "diskSizeGb": "10",
-        "creationTimestamp": "2024-01-01T10:00:00.000Z",
-        "storageLocations": ["us-central1"]
-      },
-      {
-        "name": "multi-region-orphan",
-        "storageBytes": "1073741824",
-        "diskSizeGb": "10",
-        "sourceDisk": "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/gone",
-        "sourceDiskId": "888888",
-        "creationTimestamp": "2024-01-01T10:00:00.000Z",
-        "storageLocations": ["us"]
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/web-01-os",
+        "name": "web-01-os",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Premium_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 128,
+          "diskState": "Attached"
+        }
       }
     ]
   }

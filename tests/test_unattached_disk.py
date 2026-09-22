@@ -1,106 +1,84 @@
+"""Unattached managed disks, and the tier-not-gigabyte pricing that goes with them."""
+
 from __future__ import annotations
 
-import pytest
-
-from tests.conftest import load_fixture
-from zombiescan.packs.core.unattached_disk import unattached_disk
+from tests.conftest import RESOURCE_GROUP, SUBSCRIPTION, load_fixture
+from zombiescan.packs.core.unattached_disk import RESOURCE_TYPE, unattached_disk
 
 
-def _run(make_context):
-    ctx, client = make_context({"disks.aggregatedList": load_fixture("unattached_disk")})
-    return {f.resource_id: f for f in unattached_disk(ctx)}, client
+def _findings(make_context):
+    ctx, arm = make_context({RESOURCE_TYPE: load_fixture("unattached_disk")})
+    return list(unattached_disk(ctx)), arm
 
 
-@pytest.fixture
-def findings(make_context):
-    return _run(make_context)[0]
+def test_only_disks_nothing_holds_are_reported(make_context):
+    findings, _ = _findings(make_context)
+    assert {f.resource_id for f in findings} == {"orphan-data", "tiny-scratch", "v2-orphan"}
 
 
-def test_flags_every_disk_with_no_users(findings):
-    assert set(findings) == {
-        "orphaned-build-cache",
-        "big-standard-scratch",
-        "fast-hyperdisk",
-        "future-disk-type",
-        "eu-leftover",
-        "unpriced-region-disk",
-    }
+def test_an_attached_disk_is_not_waste(make_context):
+    findings, _ = _findings(make_context)
+    assert "web-01-os" not in {f.resource_id for f in findings}
 
 
-def test_attached_disk_is_not_flagged(findings):
-    assert "attached-boot-disk" not in findings
+def test_a_disk_owned_by_something_other_than_a_vm_is_not_waste(make_context):
+    """`diskState` says Unattached while `managedBy` still names an owner.
+
+    A disk pool member reports exactly this, and deleting it would break the
+    pool rather than save anything.
+    """
+    findings, _ = _findings(make_context)
+    assert "pool-member" not in {f.resource_id for f in findings}
 
 
-def test_one_aggregated_call_covers_every_zone(make_context):
-    """The check must not fan out per zone: that is the whole point of aggregatedList."""
-    _, client = _run(make_context)
-    assert [op for op, _ in client.call_log] == ["disks.aggregatedList"]
-    assert client.calls["disks.aggregatedList"] == {"project": "test-project"}
+def test_a_disk_is_priced_by_its_tier_not_by_its_size(make_context):
+    """128 GiB Premium is a P10, and a P10 has one price.
+
+    Pricing per GiB -- the right answer on every other cloud -- would give
+    128 x something here and be wrong by orders of magnitude.
+    """
+    findings, _ = _findings(make_context)
+    disk = next(f for f in findings if f.resource_id == "orphan-data")
+    assert disk.details["billed_tier"] == "P10 LRS"
+    assert disk.monthly_cost == 20.00
 
 
-def test_a_scope_holding_only_a_warning_is_skipped(findings):
-    """Compute reports an empty zone as a warning, not as an empty list."""
-    assert not any(f.location == "us-west1-a" for f in findings.values())
+def test_a_small_disk_is_billed_at_the_rung_it_lands_on(make_context):
+    """4 GiB Premium is a P1 at $0.60, not four gigabytes of anything."""
+    findings, _ = _findings(make_context)
+    disk = next(f for f in findings if f.resource_id == "tiny-scratch")
+    assert disk.details["billed_tier"] == "P1 LRS"
+    assert disk.monthly_cost == 0.60
 
 
-def test_location_comes_from_the_aggregation_scope(findings):
-    assert findings["orphaned-build-cache"].location == "us-central1-a"
-    assert findings["big-standard-scratch"].location == "us-central1-b"
-    assert findings["eu-leftover"].location == "europe-west1-b"
+def test_premium_v2_is_the_one_family_billed_per_gib(make_context):
+    findings, _ = _findings(make_context)
+    disk = next(f for f in findings if f.resource_id == "v2-orphan")
+    assert disk.details["billed_tier"] is None
+    assert disk.monthly_cost == 200 * 0.08
+    assert "provisioned IOPS" in disk.details["note"]
 
 
-@pytest.mark.parametrize(
-    ("disk", "expected"),
-    [
-        ("orphaned-build-cache", 100 * 0.10),
-        ("big-standard-scratch", 500 * 0.04),
-        ("fast-hyperdisk", 200 * 0.08),
-    ],
-)
-def test_cost_is_size_times_the_rate_for_that_disk_type(findings, disk, expected):
-    assert findings[disk].monthly_cost == pytest.approx(expected)
+def test_the_finding_carries_what_the_command_needs(make_context):
+    findings, _ = _findings(make_context)
+    disk = next(f for f in findings if f.resource_id == "orphan-data")
+    assert disk.resource_group == RESOURCE_GROUP
+    assert disk.subscription == SUBSCRIPTION
+    assert disk.arm_id.endswith("/providers/Microsoft.Compute/disks/orphan-data")
+    assert disk.location == "eastus"
 
 
-def test_a_zone_prices_as_its_region(findings):
-    """Pricing is regional, so us-central1-b must find the us-central1 rate."""
-    assert findings["big-standard-scratch"].approximate_cost is False
-    eu = findings["eu-leftover"]
-    assert eu.monthly_cost == pytest.approx(100 * 0.11)
-    assert eu.approximate_cost is False
+def test_the_remediation_names_its_subscription_and_group(make_context):
+    findings, _ = _findings(make_context)
+    disk = next(f for f in findings if f.resource_id == "orphan-data")
+    assert disk.remediation == (
+        "az disk delete --name orphan-data "
+        f"--resource-group {RESOURCE_GROUP} --subscription {SUBSCRIPTION} --yes"
+    )
 
 
-def test_unpriced_region_falls_back_and_is_marked(findings):
-    disk = findings["unpriced-region-disk"]
-    assert disk.monthly_cost == pytest.approx(10 * 0.10)  # us-central1 fallback
-    assert disk.approximate_cost is True
-
-
-def test_unknown_disk_type_is_priced_as_balanced_and_marked(findings):
-    unknown = findings["future-disk-type"]
-    assert unknown.monthly_cost == pytest.approx(8 * 0.10)
-    assert unknown.approximate_cost is True
-
-
-def test_hyperdisk_understatement_is_disclosed(findings):
-    assert "IOPS" in findings["fast-hyperdisk"].details["note"]
-    assert "note" not in findings["orphaned-build-cache"].details
-
-
-def test_labels_are_surfaced(findings):
-    assert findings["orphaned-build-cache"].details["labels"] == {"team": "platform"}
-    assert findings["big-standard-scratch"].details["labels"] == {}
-
-
-def test_remediation_snapshots_first_and_names_the_zone(findings):
-    remediation = findings["orphaned-build-cache"].remediation
-    assert remediation.startswith("gcloud compute disks snapshot orphaned-build-cache")
-    assert remediation.index("snapshot") < remediation.index("delete")
-    assert "--zone=us-central1-a" in remediation
-    assert "--project=test-project" in remediation
-    assert remediation.count("--quiet") == 2
-
-
-def test_no_mutating_calls_are_possible(findings):
-    """Remediation is a string. Nothing in the finding can execute it."""
-    for finding in findings.values():
-        assert isinstance(finding.remediation, str)
+def test_one_call_covers_every_resource_group(make_context):
+    """The whole point of the subscription-wide list: no per-group fan-out."""
+    _, arm = _findings(make_context)
+    assert len(arm.call_log) == 1
+    assert arm.call_log[0] == ("list", f"/subscriptions/{SUBSCRIPTION}/providers/{RESOURCE_TYPE}")

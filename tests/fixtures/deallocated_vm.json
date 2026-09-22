@@ -1,0 +1,129 @@
+{
+  "graph": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/batch-runner",
+      "name": "batch-runner",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "powerState": "PowerState/deallocated",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_D2s_v5"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "managedDisk": {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/batch-runner-os"
+            }
+          },
+          "dataDisks": [
+            {
+              "managedDisk": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/batch-runner-data"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/forgotten-lab",
+      "name": "forgotten-lab",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "powerState": "PowerState/stopped",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B2ms"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "managedDisk": {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/forgotten-lab-os"
+            }
+          },
+          "dataDisks": []
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-01",
+      "name": "web-01",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "powerState": "PowerState/running",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_D2s_v5"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "managedDisk": {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/web-01-os"
+            }
+          },
+          "dataDisks": []
+        }
+      }
+    }
+  ],
+  "disks": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/batch-runner-os",
+        "name": "batch-runner-os",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Premium_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 128,
+          "diskState": "Reserved"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/batch-runner-data",
+        "name": "batch-runner-data",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 32,
+          "diskState": "Reserved"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/forgotten-lab-os",
+        "name": "forgotten-lab-os",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Premium_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 128,
+          "diskState": "Reserved"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/disks/web-01-os",
+        "name": "web-01-os",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "sku": {
+          "name": "Premium_LRS"
+        },
+        "properties": {
+          "diskSizeGB": 128,
+          "diskState": "Attached"
+        }
+      }
+    ]
+  }
+}

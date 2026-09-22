@@ -1,45 +1,46 @@
 {
-  "zones": {
-    "managedZones": [
-      {
-        "name": "agent-local",
-        "dnsName": "agent.local.",
-        "visibility": "private",
-        "creationTime": "2025-03-01T10:00:00.000Z"
-      },
-      {
-        "name": "example-com",
-        "dnsName": "example.com.",
-        "visibility": "public",
-        "creationTime": "2023-01-01T10:00:00.000Z"
-      },
-      {
-        "name": "empty-public",
-        "dnsName": "unused.example.net.",
-        "visibility": "public",
-        "creationTime": "2024-07-01T10:00:00.000Z"
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/dnszones/old-campaign.example",
+      "name": "old-campaign.example",
+      "location": "global",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "properties": {
+        "numberOfRecordSets": 2,
+        "maxNumberOfRecordSets": 10000,
+        "nameServers": [
+          "ns1-01.azure-dns.com",
+          "ns2-01.azure-dns.net"
+        ],
+        "zoneType": "Public"
       }
-    ]
-  },
-  "records": {
-    "agent-local": {
-      "rrsets": [
-        { "name": "agent.local.", "type": "SOA" },
-        { "name": "agent.local.", "type": "NS" }
-      ]
     },
-    "example-com": {
-      "rrsets": [
-        { "name": "example.com.", "type": "SOA" },
-        { "name": "example.com.", "type": "NS" },
-        { "name": "www.example.com.", "type": "A" }
-      ]
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/dnszones/staging.example",
+      "name": "staging.example",
+      "location": "global",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "numberOfRecordSets": 2,
+        "nameServers": [
+          "ns1-02.azure-dns.com"
+        ],
+        "zoneType": "Public"
+      }
     },
-    "empty-public": {
-      "rrsets": [
-        { "name": "unused.example.net.", "type": "NS" },
-        { "name": "unused.example.net.", "type": "SOA" }
-      ]
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/dnszones/example.com",
+      "name": "example.com",
+      "location": "global",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "numberOfRecordSets": 37,
+        "nameServers": [
+          "ns1-03.azure-dns.com"
+        ],
+        "zoneType": "Public"
+      }
     }
-  }
+  ]
 }

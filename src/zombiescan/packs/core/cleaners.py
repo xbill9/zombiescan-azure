@@ -1,380 +1,289 @@
 """How core's findings are removed.
 
-A cleaner plans; it never executes. Each one yields the mutating calls that
-would resolve a finding, in the order they must happen, and ``clean.py``
-decides whether to send them.
+Every cleaner here yields ARM calls and executes none of them. The runner in
+``zombiescan.clean`` decides whether the plan is sent; ``--apply`` changes
+that and nothing about which steps get planned.
 
-Three rules run through all of these:
-
-* **Back up before destroying, where the API allows it.** A disk is
-  snapshotted before it is deleted and a Cloud SQL instance gets a backup run,
-  and the backup is always the first step -- a failed step aborts the rest of
-  that finding, so a failed snapshot can never be followed by the delete that
-  assumed it.
-* **``irreversible=True`` means no recovery window at all.** A deleted
-  snapshot is gone; a destroyed KMS key version is held for 24 hours and can
-  be restored, so it is not marked.
-* **Refuse rather than guess.** Where the safe action depends on something the
-  API does not say, the check carries an ``uncleanable`` reason instead of a
-  cleaner here.
+**Azure has more recovery windows than most clouds, and the ``irreversible``
+flag reflects the real ones rather than a general sense of danger.** A deleted
+Key Vault key is recoverable for the vault's soft-delete period. A deleted SQL
+database is restorable from its point-in-time backups. A deleted managed disk
+is not -- which is why the disk cleaner takes a snapshot first -- and a
+released public IP address is gone for good, which is why that one is marked.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 
-from zombiescan import gcp
-from zombiescan.cleaners import Step, backup_name, cleaner
+from zombiescan import helpers
+from zombiescan.azure import ArmError
+from zombiescan.cleaners import Step, cleaner, snapshot_step
 from zombiescan.models import Finding, ScanContext
 
-# --------------------------------------------------------------------------
-# Compute Engine
-# --------------------------------------------------------------------------
+
+def _delete(finding: Finding, resource_type: str, what: str, irreversible: bool = False) -> Step:
+    """The one-call plan that most findings have."""
+    return Step(
+        description=f"delete {what} {finding.resource_id}",
+        method="DELETE",
+        path=finding.arm_id,
+        resource_type=resource_type,
+        irreversible=irreversible,
+    )
 
 
-def _is_regional(location: str) -> bool:
-    return gcp.region_of(location) == location
+# --------------------------------------------------------------------------
+# Compute
+# --------------------------------------------------------------------------
 
 
 @cleaner("unattached-disk")
 def clean_unattached_disk(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
     """Snapshot the disk, then delete it.
 
-    The snapshot is what makes the delete safe, so it goes first and the
-    delete only runs if it succeeded. A regional disk lives in a different
-    collection from a zonal one and has to be addressed through it.
+    The snapshot comes first and the runner aborts the finding at the first
+    failure, so a snapshot that does not complete can never be followed by the
+    delete that assumed it. An incremental snapshot of a disk that has been
+    snapshotted before costs very little; of one that has not, it costs the
+    cheapest snapshot rate for the data actually on it -- either way less than
+    the disk it replaces.
     """
-    name = finding.resource_id
-    location = finding.location
-    snapshot = backup_name(name)
-
-    if _is_regional(location):
-        yield Step(
-            description=f"snapshot regional disk {name} as {snapshot}",
-            api="compute",
-            operation="regionDisks.createSnapshot",
-            params={
-                "project": finding.project,
-                "region": location,
-                "disk": name,
-                "body": {"name": snapshot},
-            },
-        )
-        yield Step(
-            description=f"delete regional disk {name}",
-            api="compute",
-            operation="regionDisks.delete",
-            params={"project": finding.project, "region": location, "disk": name},
-        )
-        return
-
-    yield Step(
-        description=f"snapshot disk {name} as {snapshot}",
-        api="compute",
-        operation="disks.createSnapshot",
-        params={
-            "project": finding.project,
-            "zone": location,
-            "disk": name,
-            "body": {"name": snapshot},
-        },
-    )
-    yield Step(
-        description=f"delete disk {name}",
-        api="compute",
-        operation="disks.delete",
-        params={"project": finding.project, "zone": location, "disk": name},
-    )
+    yield snapshot_step(finding, finding.arm_id, finding.location)
+    yield _delete(finding, "Microsoft.Compute/disks", "managed disk")
 
 
-@cleaner("unused-static-ip")
-def clean_unused_static_ip(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Release the address.
+@cleaner("deallocated-vm")
+def clean_deallocated_vm(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the VM and leave its disks behind.
 
-    Irreversible in the way that matters: the address is returned to Google's
-    pool and cannot be reclaimed, so anything with that IP written into a DNS
-    record or an allowlist stops working and cannot be put back.
+    ARM's default is to detach rather than delete a managed disk, so the OS
+    and data disks survive the VM. That is deliberate: it makes this step
+    reversible in the way that matters, and the unattached-disk check reports
+    those disks on the next scan with a snapshot-first plan of their own.
+
+    The NIC survives too, and ``orphaned-nic`` picks it up.
     """
-    name = finding.resource_id
-    if finding.location == gcp.GLOBAL:
-        yield Step(
-            description=f"release global static IP {name}",
-            api="compute",
-            operation="globalAddresses.delete",
-            params={"project": finding.project, "address": name},
-            irreversible=True,
-        )
-        return
-    yield Step(
-        description=f"release static IP {name} in {finding.location}",
-        api="compute",
-        operation="addresses.delete",
-        params={"project": finding.project, "region": finding.location, "address": name},
-        irreversible=True,
-    )
+    yield _delete(finding, "Microsoft.Compute/virtualMachines", "virtual machine")
 
 
 @cleaner("orphaned-snapshot")
 def clean_orphaned_snapshot(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Delete the snapshot. There is nothing to back a snapshot up with."""
-    yield Step(
-        description=f"delete snapshot {finding.resource_id}",
-        api="compute",
-        operation="snapshots.delete",
-        params={"project": finding.project, "snapshot": finding.resource_id},
-        irreversible=True,
-    )
+    """Delete the snapshot.
 
-
-@cleaner("unused-image")
-def clean_unused_image(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    yield Step(
-        description=f"delete custom image {finding.resource_id}",
-        api="compute",
-        operation="images.delete",
-        params={"project": finding.project, "image": finding.resource_id},
-        irreversible=True,
-    )
-
-
-@cleaner("stopped-instance")
-def clean_stopped_instance(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Detach the disks from the instance's lifecycle, then delete it.
-
-    Deleting an instance also deletes every attached disk whose ``autoDelete``
-    is set, which for a boot disk is the default. Clearing that flag first
-    turns an irreversible delete into a recoverable one: the disks survive,
-    and the unattached-disk check reports them next run with a snapshot-first
-    plan of their own.
-
-    The flag is read during planning and cleared as its own step, so the dry
-    run shows exactly which disks are about to be spared.
+    Irreversible: a snapshot is itself the backup, so there is nothing to take
+    a copy of it into and no recovery window afterwards. Its source disk is
+    already gone -- that is what made it a finding -- so this is the last copy
+    of whatever was on that disk.
     """
-    name = finding.resource_id
-    zone = finding.location
-    instance = gcp.call(
-        ctx.client("compute"),
-        "instances.get",
-        project=finding.project,
-        zone=zone,
-        instance=name,
-    )
-
-    for disk in instance.get("disks") or []:
-        if not disk.get("autoDelete"):
-            continue
-        device = disk.get("deviceName")
-        if not device:
-            continue
-        yield Step(
-            description=f"keep disk {gcp.last_segment(disk.get('source')) or device} after delete",
-            api="compute",
-            operation="instances.setDiskAutoDelete",
-            params={
-                "project": finding.project,
-                "zone": zone,
-                "instance": name,
-                "deviceName": device,
-                "autoDelete": False,
-            },
-        )
-
-    yield Step(
-        description=f"delete stopped instance {name}, keeping its disks",
-        api="compute",
-        operation="instances.delete",
-        params={"project": finding.project, "zone": zone, "instance": name},
-    )
+    yield _delete(finding, "Microsoft.Compute/snapshots", "snapshot", irreversible=True)
 
 
-@cleaner("idle-cloud-nat")
-def clean_idle_cloud_nat(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Remove one NAT configuration from its Cloud Router.
+# --------------------------------------------------------------------------
+# Networking
+# --------------------------------------------------------------------------
 
-    There is no delete call for a NAT: it is a field on the router, so the
-    removal is a patch carrying the NATs that should remain. The current list
-    is read during planning, which is what makes the dry run show the exact
-    body that would be sent.
+
+@cleaner("unused-public-ip")
+def clean_unused_public_ip(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Release the address.
+
+    Irreversible: Azure returns the address to the regional pool and will not
+    hand the same one back. Anything with it in a DNS record, a partner's
+    allow-list or a firewall rule elsewhere stops working, and no amount of
+    re-creating the resource gets the address back.
     """
-    router_name, _, nat_name = finding.resource_id.partition("/")
-    router = gcp.call(
-        ctx.client("compute"),
-        "routers.get",
-        project=finding.project,
-        region=finding.location,
-        router=router_name,
-    )
-    remaining = [nat for nat in (router.get("nats") or []) if nat.get("name") != nat_name]
-    if len(remaining) == len(router.get("nats") or []):
-        # The NAT is already gone. Yielding no steps reports the finding as
-        # having nothing to do rather than sending a patch that changes
-        # nothing.
-        return
-
-    yield Step(
-        description=f"remove NAT {nat_name} from router {router_name}",
-        api="compute",
-        operation="routers.patch",
-        params={
-            "project": finding.project,
-            "region": finding.location,
-            "router": router_name,
-            "body": {"nats": remaining},
-        },
+    yield _delete(
+        finding, "Microsoft.Network/publicIPAddresses", "public IP address", irreversible=True
     )
 
 
-@cleaner("idle-forwarding-rule")
-def clean_idle_forwarding_rule(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    name = finding.resource_id
-    if finding.location == gcp.GLOBAL:
-        yield Step(
-            description=f"delete global forwarding rule {name}",
-            api="compute",
-            operation="globalForwardingRules.delete",
-            params={"project": finding.project, "forwardingRule": name},
-        )
-        return
-    yield Step(
-        description=f"delete forwarding rule {name} in {finding.location}",
-        api="compute",
-        operation="forwardingRules.delete",
-        params={"project": finding.project, "region": finding.location, "forwardingRule": name},
-    )
+@cleaner("idle-nat-gateway")
+def clean_idle_nat_gateway(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the gateway.
+
+    Not irreversible: a NAT gateway holds no data and can be recreated from
+    its configuration. The public IP addresses it held survive and are
+    reported by ``unused-public-ip`` on the next scan -- deleting them here
+    would release addresses the operator may want to keep.
+    """
+    yield _delete(finding, "Microsoft.Network/natGateways", "NAT gateway")
 
 
-@cleaner("unused-firewall-rule")
-def clean_unused_firewall_rule(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    yield Step(
-        description=f"delete firewall rule {finding.resource_id}",
-        api="compute",
-        operation="firewalls.delete",
-        params={"project": finding.project, "firewall": finding.resource_id},
-    )
+@cleaner("idle-load-balancer")
+def clean_idle_load_balancer(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the load balancer.
+
+    Its frontend public IP addresses survive and are reported separately, for
+    the same reason as the NAT gateway's: releasing an address is the one step
+    here that cannot be undone, and it should be an explicit decision.
+    """
+    yield _delete(finding, "Microsoft.Network/loadBalancers", "load balancer")
+
+
+@cleaner("orphaned-nic")
+def clean_orphaned_nic(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the network interface.
+
+    This is usually the step that unblocks the rest: the public IP, subnet and
+    virtual network the NIC was pinning all become deletable once it is gone.
+    Nothing is lost -- a NIC holds configuration, not data.
+    """
+    yield _delete(finding, "Microsoft.Network/networkInterfaces", "network interface")
+
+
+@cleaner("unused-nsg")
+def clean_unused_nsg(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the security group.
+
+    Its rules go with it. That is recoverable in practice rather than in the
+    API: Azure's Activity Log keeps the resource's last written state for
+    ninety days, so the rule set can be read back out of it. The finding's
+    details also record the rule names.
+    """
+    yield _delete(finding, "Microsoft.Network/networkSecurityGroups", "network security group")
 
 
 @cleaner("unused-subnet")
 def clean_unused_subnet(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    yield Step(
-        description=f"delete subnet {finding.resource_id} in {finding.location}",
-        api="compute",
-        operation="subnetworks.delete",
-        params={
-            "project": finding.project,
-            "region": finding.location,
-            "subnetwork": finding.resource_id,
-        },
-    )
+    """Delete the subnet, freeing its address range.
 
-
-# --------------------------------------------------------------------------
-# Managed services
-# --------------------------------------------------------------------------
-
-
-@cleaner("stopped-sql-instance")
-def clean_stopped_sql_instance(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Take a backup, then delete the instance.
-
-    An on-demand backup outlives the instance it came from, so it is the one
-    thing that makes deleting a database recoverable. It runs first and the
-    delete is abandoned if it fails.
+    ARM refuses this outright if anything has moved into the subnet since the
+    scan, which is the right failure: the range is only free to reuse if
+    nothing is in it, and Azure is the authority on that at the moment of the
+    call rather than at the moment of the scan.
     """
-    name = finding.resource_id
-    yield Step(
-        description=f"back up Cloud SQL instance {name} before deleting it",
-        api="sqladmin",
-        operation="backupRuns.insert",
-        params={
-            "project": finding.project,
-            "instance": name,
-            "body": {"description": f"zombiescan pre-delete backup of {name}"},
-        },
-    )
-    yield Step(
-        description=f"delete Cloud SQL instance {name}",
-        api="sqladmin",
-        operation="instances.delete",
-        params={"project": finding.project, "instance": name},
-    )
+    yield _delete(finding, "Microsoft.Network/virtualNetworks/subnets", "subnet")
 
 
 @cleaner("unused-dns-zone")
 def clean_unused_dns_zone(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
     """Delete the zone.
 
-    The SOA and NS records go with it and need no separate step: those are the
-    only two records the check allows a reported zone to have, and Cloud DNS
-    removes them with the zone.
+    Not irreversible in terms of data -- the zone holds only the SOA and NS
+    records Azure created -- but recreating it later assigns a **different**
+    set of name servers, so the delegation at the registrar has to be updated
+    again. A zone with records in it is not a finding, so nothing that is
+    currently resolving depends on these.
+    """
+    yield _delete(finding, "Microsoft.Network/dnszones", "DNS zone")
+
+
+# --------------------------------------------------------------------------
+# Platform services
+# --------------------------------------------------------------------------
+
+
+@cleaner("idle-app-service-plan")
+def clean_idle_app_service_plan(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the plan.
+
+    ARM refuses while any app is still on it, which is the check that matters:
+    an app deployed between the scan and the apply keeps its plan.
+    """
+    yield _delete(finding, "Microsoft.Web/serverfarms", "App Service plan")
+
+
+@cleaner("paused-sql-database")
+def clean_paused_sql_database(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the database.
+
+    Not irreversible: Azure keeps a deleted database's point-in-time backups
+    for the server's retention period -- seven days by default, up to
+    thirty-five -- and it can be restored from
+    ``restorableDroppedDatabases`` until then. Past that window it is gone, so
+    this is a recovery *window* rather than a recovery guarantee, and the
+    window is what the flag is about.
+    """
+    yield _delete(finding, "Microsoft.Sql/servers/databases", "SQL database")
+
+
+@cleaner("disabled-key-vault-key")
+def clean_disabled_key_vault_key(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the key.
+
+    Not irreversible: Key Vault soft-delete is mandatory and keeps a deleted
+    key recoverable for the vault's retention period, seven to ninety days.
+    The key keeps being billed for that period, so the saving starts when the
+    window closes rather than when this returns -- the same shape as a
+    destroyed KMS key version on Google Cloud, and worth knowing before
+    anyone checks next month's invoice for the difference.
     """
     yield Step(
-        description=f"delete managed zone {finding.resource_id}",
-        api="dns",
-        operation="managedZones.delete",
-        params={"project": finding.project, "managedZone": finding.resource_id},
-        irreversible=True,
+        description=(
+            f"delete key {finding.resource_id} (recoverable during the vault's "
+            "soft-delete retention period)"
+        ),
+        method="DELETE",
+        path=finding.arm_id,
+        resource_type="Microsoft.KeyVault/vaults",
     )
 
 
-@cleaner("stale-secret")
-def clean_stale_secret(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Delete the secret and every version in it.
+@cleaner("empty-container-registry")
+def clean_empty_container_registry(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the registry.
 
-    Secret Manager has no recycle bin: the secret material is unrecoverable
-    the moment this returns, and anything still reading it fails immediately.
+    It holds no images -- that is what made it a finding -- so there is
+    nothing to back up. The registry name is released and becomes available
+    to anyone, which matters only if something still pulls by that login
+    server, and nothing in an empty registry can be pulled.
     """
-    yield Step(
-        description=f"delete secret {finding.resource_id} and all its versions",
-        api="secretmanager",
-        operation="projects.secrets.delete",
-        params={"name": f"projects/{finding.project}/secrets/{finding.resource_id}"},
-        irreversible=True,
-    )
+    yield _delete(finding, "Microsoft.ContainerRegistry/registries", "container registry")
 
 
-@cleaner("disabled-kms-key")
-def clean_disabled_kms_key(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    """Schedule the key version for destruction.
+@cleaner("unused-availability-test")
+def clean_unused_availability_test(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the web test.
 
-    Not marked irreversible: Google holds a destroyed version for 24 hours by
-    default and ``gcloud kms keys versions restore`` brings it back within
-    that window. That is a real recovery path, which is the test this flag
-    applies.
+    The alert rule that watches it is a separate resource and survives. It
+    will stop firing, because there is no longer a test to fail, but it is
+    left in place rather than deleted -- an alert rule can watch more than one
+    test, and removing one that still has work to do is a worse outcome than
+    leaving a quiet rule behind.
     """
-    key_ring, key, version = finding.resource_id.split("/")
-    name = (
-        f"projects/{finding.project}/locations/{finding.location}/keyRings/{key_ring}"
-        f"/cryptoKeys/{key}/cryptoKeyVersions/{version}"
-    )
-    yield Step(
-        description=f"schedule destruction of key version {version} of {key}",
-        api="cloudkms",
-        operation="projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.destroy",
-        params={"name": name, "body": {}},
-    )
+    yield _delete(finding, "Microsoft.Insights/webtests", "availability test")
 
 
-@cleaner("stale-artifact-repository")
-def clean_stale_artifact_repository(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
-    yield Step(
-        description=f"delete Artifact Registry repository {finding.resource_id} and its images",
-        api="artifactregistry",
-        operation="projects.locations.repositories.delete",
-        params={
-            "name": (
-                f"projects/{finding.project}/locations/{finding.location}"
-                f"/repositories/{finding.resource_id}"
+@cleaner("empty-resource-group")
+def clean_empty_resource_group(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the group, after checking again that it is still empty.
+
+    ``az group delete`` is the most destructive command in Azure: it removes
+    everything inside the group, without listing what that was. The whole
+    basis of this finding is that there is nothing inside, and a scan is a
+    snapshot -- something can be deployed into the group between the scan and
+    the apply, and then this step would delete it.
+
+    So the group is listed again here, during planning, and the plan is
+    refused if anything has appeared. That is a read call, which planning is
+    allowed to make, and it is the difference between a safe command and the
+    worst thing this tool could do.
+    """
+    try:
+        contents = list(
+            ctx.arm.list(
+                f"/subscriptions/{finding.subscription}/resourceGroups/"
+                f"{finding.resource_id}/resources",
+                "Microsoft.Resources/resourceGroups",
             )
-        },
-        irreversible=True,
-    )
+        )
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-check that resource group {finding.resource_id} is empty "
+            f"({helpers.arg(str(exc))}); refusing to plan a group delete without it"
+        ) from exc
 
+    if contents:
+        names = ", ".join(str(item.get("name")) for item in contents[:5])
+        raise RuntimeError(
+            f"resource group {finding.resource_id} is no longer empty -- it now holds "
+            f"{len(contents)} resource(s) ({names}). Re-run the scan"
+        )
 
-@cleaner("unused-uptime-check")
-def clean_unused_uptime_check(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
     yield Step(
-        description=f"delete uptime check {finding.resource_id}",
-        api="monitoring",
-        operation="projects.uptimeCheckConfigs.delete",
-        params={"name": f"projects/{finding.project}/uptimeCheckConfigs/{finding.resource_id}"},
+        description=f"delete empty resource group {finding.resource_id}",
+        method="DELETE",
+        path=f"/subscriptions/{finding.subscription}/resourceGroups/{finding.resource_id}",
+        resource_type="Microsoft.Resources/resourceGroups",
     )

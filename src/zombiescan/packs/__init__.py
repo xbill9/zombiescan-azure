@@ -1,9 +1,9 @@
 """Packs: units of scan coverage that can be shipped and installed separately.
 
-A pack bundles everything one area of Google Cloud needs -- its checks, their
+A pack bundles everything one area of Azure needs -- its checks, their
 cleaners, the rate specs that price them, and the fetchers that refresh those
 rates. The checks that ship in this package are themselves packs (``core``,
-``gke``), loaded by exactly the same path as one installed from PyPI, so the
+``aks``), loaded by exactly the same path as one installed from PyPI, so the
 seam is exercised on every run rather than only by third parties.
 
 A third-party pack declares itself with an entry point::
@@ -16,7 +16,7 @@ and calls ``register_pack`` at import time, before registering its checks::
     from zombiescan.packs import register_pack
     register_pack("acmecorp", version="1.2.0", description="ACME's own waste checks")
 
-**A pack is code, and it runs with your Google Cloud credentials.** Nothing here
+**A pack is code, and it runs with your Azure credentials.** Nothing here
 sandboxes it or verifies that its checks are read-only; install packs you
 trust, on the same judgement you would apply to any other dependency.
 """

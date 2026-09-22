@@ -9,6 +9,7 @@ import, and a rate key that two packs both answer to.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import subprocess
 import sys
@@ -30,12 +31,12 @@ def test_the_builtin_checks_all_belong_to_a_loaded_pack():
         assert spec.pack in packs.PACKS, f"{name} claims pack {spec.pack!r}, which is not loaded"
 
 
-def test_gke_is_a_separate_pack():
+def test_aks_is_a_separate_pack():
     """The extraction is the proof the seam carries a whole service."""
     engine.load_packs()
-    assert "gke" in packs.PACKS
-    gke = [name for name, spec in CHECKS.items() if spec.pack == "gke"]
-    assert gke, "the GKE pack registered no checks"
+    assert "aks" in packs.PACKS
+    aks = [name for name, spec in CHECKS.items() if spec.pack == "aks"]
+    assert aks, "the AKS pack registered no checks"
 
 
 def test_discovery_is_repeatable():
@@ -67,16 +68,16 @@ def test_a_pack_built_against_another_api_version_is_refused():
 
 def test_a_disabled_pack_contributes_no_checks():
     engine.load_packs()
-    selected = engine.select_checks((), disabled_packs=frozenset({"gke"}))
+    selected = engine.select_checks((), disabled_packs=frozenset({"aks"}))
     assert selected, "disabling one pack removed everything"
-    assert all(spec.pack != "gke" for spec in selected)
+    assert all(spec.pack != "aks" for spec in selected)
 
 
 def test_naming_a_check_from_a_disabled_pack_is_an_error():
     """Silently honouring one flag and ignoring the other is the worst option."""
     engine.load_packs()
     with pytest.raises(ValueError, match="disabled by --disable-pack"):
-        engine.select_checks(("gke-idle-cluster",), disabled_packs=frozenset({"gke"}))
+        engine.select_checks(("aks-idle-cluster",), disabled_packs=frozenset({"aks"}))
 
 
 # --- rates ---------------------------------------------------------------
@@ -86,14 +87,14 @@ def test_two_packs_cannot_register_the_same_rate_key():
     """Import order must never decide what a finding costs."""
     engine.load_packs()
     with pytest.raises(ValueError, match="duplicate rate key"):
-        register_rate(RateSpec("disk.gb_month", "somewhere_else"))
+        register_rate(RateSpec("disk.tier_month", "somewhere_else"))
 
 
 def test_every_rate_key_resolves(pricing: PriceTable):
     """A registered key that raises on lookup is a broken pack, found late."""
     engine.load_packs()
     for key, spec in RATES.items():
-        kwargs = {} if spec.is_global else {"region": "us-central1"}
+        kwargs = {} if spec.is_global else {"region": "eastus"}
         if spec.variants:
             kwargs["variant"] = "definitely-not-a-real-variant"
         price, approximate = pricing.rate(key, **kwargs)
@@ -104,18 +105,32 @@ def test_every_rate_key_resolves(pricing: PriceTable):
             assert price == 0.0 and approximate is True, key
 
 
+def test_an_unknown_disk_tier_is_unpriced_rather_than_guessed(pricing: PriceTable):
+    """Disk tiers span three orders of magnitude -- P1 is $0.60 and P80 is
+    $3,604 -- so substituting any other tier for one the table does not know
+    would be wrong by more than the finding is worth."""
+    price, approximate = pricing.rate("disk.tier_month", region="eastus", variant="P99 LRS")
+    assert (price, approximate) == (0.0, True)
+
+
+def test_a_global_rate_is_the_same_whatever_region_is_asked_for(pricing: PriceTable):
+    """NAT Gateway and Load Balancer have no per-region entry at all."""
+    for key in ("nat_gateway.month", "load_balancer.month"):
+        assert pricing.rate(key)[1] is False
+
+
 def test_an_unknown_rate_key_names_the_registered_ones(pricing: PriceTable):
     with pytest.raises(KeyError, match="unknown rate key"):
-        pricing.rate("nothing.like_this", region="us-central1")
+        pricing.rate("nothing.like_this", region="eastus")
 
 
-def test_gke_rates_are_registered_by_the_gke_pack():
+def test_aks_rates_are_registered_by_the_aks_pack():
     """A pack prices what core has never heard of, without editing core."""
     engine.load_packs()
-    owners = {key: spec.pack for key, spec in RATES.items() if key.startswith("gke.")}
-    assert owners, "the GKE pack registered no rates"
-    assert set(owners.values()) == {"gke"}, owners
-    assert not any(key.startswith("gke.") for key in RESOLVERS)
+    owners = {key: spec.pack for key, spec in RATES.items() if key.startswith("aks.")}
+    assert owners, "the AKS pack registered no rates"
+    assert set(owners.values()) == {"aks"}, owners
+    assert not any(key.startswith("aks.") for key in RESOLVERS)
 
 
 # --- the refresher -------------------------------------------------------
@@ -153,7 +168,7 @@ def test_running_the_refresher_as_main_uses_the_registry_packs_write_to():
     into the canonical one, so running __main__'s own main() rebuilds the
     table from core's sections alone and drops every pack's rates -- silently,
     because the result is a valid table with prices of zero. Run exactly as the
-    docs say to, with main() replaced so nothing reaches Google Cloud.
+    docs say to, with main() replaced so nothing reaches the pricing API.
     """
     script = textwrap.dedent(
         """
@@ -173,7 +188,7 @@ def test_running_the_refresher_as_main_uses_the_registry_packs_write_to():
         [sys.executable, "-c", script], capture_output=True, text=True, timeout=120
     )
     assert result.returncode == 0, result.stderr
-    assert "gke" in result.stdout, result.stdout
+    assert "aks" in result.stdout, result.stdout
 
 
 def test_a_refresh_that_would_lose_rates_is_refused():
@@ -182,26 +197,26 @@ def test_a_refresh_that_would_lose_rates_is_refused():
 
     existing = {
         "_meta": {"generated": "2026-09-21T00:00:00Z"},
-        "disk_gb_month": {"us-central1": {"pd-balanced": 0.10}},
-        "gke_cluster_hour": {"_value": 0.10},
+        "disk_tier_month": {"eastus": {"P10 LRS": 19.71}},
+        "aks_cluster_hour": {"eastus": {"Standard": 0.10}},
     }
-    unchanged = {"disk_gb_month": existing["disk_gb_month"]}
+    unchanged = {"disk_tier_month": existing["disk_tier_month"]}
 
-    assert regressions({**unchanged, "gke_cluster_hour": {}}, existing) == [
-        "gke_cluster_hour: empty (had 1 entries)"
+    assert regressions({**unchanged, "aks_cluster_hour": {}}, existing) == [
+        "aks_cluster_hour: empty (had 1 entries)"
     ]
-    assert regressions(unchanged, existing) == ["gke_cluster_hour: gone (had 1 entries)"]
+    assert regressions(unchanged, existing) == ["aks_cluster_hour: gone (had 1 entries)"]
     assert regressions({**existing}, existing) == []
 
 
-def test_gke_sections_are_fetched_by_the_gke_pack():
+def test_aks_sections_are_fetched_by_the_aks_pack():
     engine.load_packs()
     from zombiescan.pricing.refresh import FETCHERS
 
     for fetcher in FETCHERS:
         for section in fetcher.sections:
-            if section.startswith("gke_"):
-                assert fetcher.pack == "gke", section
+            if section.startswith("aks_"):
+                assert fetcher.pack == "aks", section
 
 
 # --- third-party packs ---------------------------------------------------
@@ -281,7 +296,7 @@ def test_a_pack_that_fails_to_import_does_not_take_the_scan_with_it(third_party)
     assert len(CHECKS) == before, "a broken pack cost us another pack's checks"
     failure = next(f for f in report.failed if f.name == "zsp-broken")
     assert "boom" in failure.message
-    assert {"core", "gke"} <= {p.name for p in report.loaded}
+    assert {"core", "aks"} <= {p.name for p in report.loaded}
 
 
 def test_a_module_that_never_registers_is_reported_not_ignored(third_party):
@@ -310,12 +325,12 @@ register_rate(RateSpec("zsp.widget_month", "zsp_widget_month", pack="zsp-priced"
 
     table = PriceTable(
         {
-            "fallback_region": "us-central1",
+            "fallback_region": "eastus",
             "hours_per_month": 730,
-            "zsp_widget_month": {"us-central1": 1.25},
+            "zsp_widget_month": {"eastus": 1.25},
         }
     )
-    assert table.rate("zsp.widget_month", region="us-central1") == (1.25, False)
+    assert table.rate("zsp.widget_month", region="eastus") == (1.25, False)
 
 
 def test_every_check_has_a_test_file_of_its_own():
@@ -330,32 +345,57 @@ def test_every_check_has_a_test_file_of_its_own():
     assert missing == [], f"checks with no test file: {missing}"
 
 
-# Google's permission prefix for each API the checks name. Only the ones that
-# differ from the API's own name need an entry; the rest match.
-_PERMISSION_PREFIX = {"sqladmin": "cloudsql", "artifactregistry": "artifactregistry"}
-
-
-def test_the_read_only_role_covers_every_api_a_check_calls():
-    """A check whose API is missing from the role reports nothing under it.
+def test_the_read_only_role_covers_every_provider_a_check_reads():
+    """A check whose provider is missing from the role reports nothing under it.
 
     That failure is invisible: the scan succeeds, finds nothing for that
-    service, and reads as a clean project.
+    service, and reads as a clean subscription.
     """
     engine.load_packs()
-    role = (
-        pathlib.Path(__file__).parent.parent / "policy" / "zombiescan-scanner-role.yaml"
-    ).read_text()
+    role = json.loads(
+        (
+            pathlib.Path(__file__).parent.parent / "policy" / "zombiescan-scanner-role.json"
+        ).read_text()
+    )
     granted = {
-        line.strip().removeprefix("- ").split()[0].split(".")[0]
-        for line in role.splitlines()
-        if line.strip().startswith("- ")
+        action.split("/")[0]
+        for permission in role["permissions"]
+        for action in permission["actions"]
     }
-    needed = {_PERMISSION_PREFIX.get(api, api) for spec in CHECKS.values() for api in spec.apis}
-    assert needed <= granted, f"APIs with no permission in policy/: {sorted(needed - granted)}"
+    needed = {provider for spec in CHECKS.values() for provider in spec.providers}
+    assert needed <= granted, f"providers with no permission in policy/: {sorted(needed - granted)}"
 
 
-def test_every_check_declares_the_apis_it_calls():
-    """`zombiescan apis` and the read-only role are both generated from this."""
+def test_the_read_only_role_grants_nothing_that_writes():
+    """The role is the guarantee a reviewer checks, so it must be checkable."""
+    role = json.loads(
+        (
+            pathlib.Path(__file__).parent.parent / "policy" / "zombiescan-scanner-role.json"
+        ).read_text()
+    )
+    actions = [a for p in role["permissions"] for a in p["actions"]]
+    offenders = [action for action in actions if not action.endswith(("/read", "/action"))]
+    assert offenders == [], f"role grants non-read actions: {offenders}"
+    # A wildcard would hide a write behind a pattern nobody reads.
+    assert not any(action.endswith("/*") for action in actions)
+    assert role.get("notActions") == []
+
+
+def test_every_check_declares_the_providers_it_reads():
+    """`zombiescan providers`, the read-only role and the engine's
+    registration pre-check are all generated from this. A check that declares
+    none would be run against a subscription that has never used its service
+    and report it clean."""
     engine.load_packs()
-    silent = sorted(name for name, spec in CHECKS.items() if not spec.apis)
-    assert silent == [], f"checks that declare no API: {silent}"
+    silent = sorted(name for name, spec in CHECKS.items() if not spec.providers)
+    assert silent == [], f"checks that declare no provider: {silent}"
+
+
+def test_every_provider_a_check_names_has_a_pinned_api_version():
+    """An unpinned type raises at scan time, in a worker thread, per subscription."""
+    engine.load_packs()
+    from zombiescan import azure
+
+    pinned = {azure.namespace_of(rt) for rt in azure.API_VERSIONS}
+    needed = {provider for spec in CHECKS.values() for provider in spec.providers}
+    assert needed <= pinned, f"providers with no api-version: {sorted(needed - pinned)}"

@@ -6,143 +6,177 @@ import datetime as dt
 
 import pytest
 
-from tests.conftest import FakeClient
-from zombiescan import gcp, helpers
+from zombiescan import azure, helpers
+
+SUB = "00000000-1111-2222-3333-444444444444"
+DISK_ID = f"/subscriptions/{SUB}/resourceGroups/Prod-RG/providers/Microsoft.Compute/disks/data-1"
 
 
 @pytest.mark.parametrize(
     ("location", "expected"),
     [
-        ("us-central1-a", "us-central1"),
-        ("us-central1", "us-central1"),
-        ("europe-west1-b", "europe-west1"),
-        ("northamerica-northeast2-c", "northamerica-northeast2"),
+        ("eastus", "eastus"),
+        ("East US", "eastus"),
+        ("westeurope", "westeurope"),
         ("global", "global"),
         ("", "global"),
     ],
 )
-def test_a_zone_prices_as_its_region(location, expected):
-    """Pricing is regional, so every lookup keys on the region a zone is in."""
-    assert gcp.region_of(location) == expected
+def test_a_region_is_normalised_to_how_arm_spells_it(location, expected):
+    """ARM answers `eastus`; a human writes `East US`. Both must price the same."""
+    assert azure.region_of(location) == expected
 
 
-@pytest.mark.parametrize(
-    ("scope", "expected"),
-    [
-        ("zones/us-central1-a", "us-central1-a"),
-        ("regions/europe-west4", "europe-west4"),
-        ("global", "global"),
-    ],
-)
-def test_location_comes_out_of_the_aggregation_scope(scope, expected):
-    assert gcp.location_from_scope(scope) == expected
+def test_an_arm_id_carries_everything_a_command_needs():
+    assert azure.subscription_of(DISK_ID) == SUB
+    assert azure.resource_group_of(DISK_ID) == "Prod-RG"
+    assert azure.name_of(DISK_ID) == "data-1"
+    assert azure.type_of(DISK_ID) == "microsoft.compute/disks"
 
 
-def test_last_segment_reads_a_name_off_a_resource_url():
-    url = "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/disks/data-1"
-    assert gcp.last_segment(url) == "data-1"
-    assert gcp.last_segment(None) == ""
-    assert gcp.last_segment("") == ""
+def test_resource_group_is_found_whatever_case_arm_used():
+    """ARM returns `resourceGroups`; Resource Graph returns `resourcegroups`."""
+    lowered = DISK_ID.replace("resourceGroups", "resourcegroups")
+    assert azure.resource_group_of(lowered) == "Prod-RG"
 
 
-@pytest.mark.parametrize(
-    ("location", "flag"),
-    [
-        ("us-central1-a", "--zone=us-central1-a"),
-        ("us-central1", "--region=us-central1"),
-        ("global", ""),
-    ],
-)
-def test_location_flag_matches_how_gcloud_addresses_the_resource(location, flag):
-    """A wrong flag makes a generated command prompt, which a script cannot answer."""
-    assert helpers.location_flag(location) == flag
+def test_a_sub_resource_type_is_read_from_the_whole_path():
+    subnet = (
+        f"/subscriptions/{SUB}/resourceGroups/rg/providers/Microsoft.Network"
+        "/virtualNetworks/vnet/subnets/web"
+    )
+    assert azure.type_of(subnet) == "microsoft.network/virtualnetworks/subnets"
+    assert azure.name_of(subnet) == "web"
 
 
-def test_gcloud_always_names_the_project_and_never_prompts():
-    command = helpers.gcloud("gcloud compute disks delete d1", "proj-1", "us-central1-a")
-    assert command == (
-        "gcloud compute disks delete d1 --zone=us-central1-a --project=proj-1 --quiet"
+def test_an_api_version_falls_back_to_the_parent_type():
+    """Azure versions a sub-type with its parent, so there is no list to keep."""
+    assert (
+        azure.api_version("Microsoft.Sql/servers/databases")
+        == azure.API_VERSIONS["Microsoft.Sql/servers"]
+    )
+    assert (
+        azure.api_version("Microsoft.Network/virtualNetworks/subnets")
+        == (azure.API_VERSIONS["Microsoft.Network/virtualNetworks"])
     )
 
 
-def test_gcloud_omits_the_location_flag_for_a_global_resource():
-    assert helpers.gcloud("gcloud compute images delete i1", "proj-1") == (
-        "gcloud compute images delete i1 --project=proj-1 --quiet"
-    )
+def test_an_unpinned_type_names_the_ones_that_are():
+    with pytest.raises(KeyError, match="API_VERSIONS"):
+        azure.api_version("Microsoft.Nonesuch/widgets")
 
 
-def test_age_days_reads_both_timestamp_spellings():
-    """Google returns some timestamps with an offset and some ending in Z."""
-    recent = (dt.datetime.now(dt.UTC) - dt.timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    assert helpers.age_days(recent) == 10
-    offset = (dt.datetime.now(dt.UTC) - dt.timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    assert helpers.age_days(offset) == 5
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        "2026-09-01T00:00:00Z",
+        "2026-09-01T00:00:00.1234567Z",  # ARM's seven digits
+        "2026-09-01T00:00:00.123+00:00",
+        "2026-09-01T00:00:00",  # no zone at all
+    ],
+)
+def test_every_timestamp_shape_arm_returns_parses(timestamp):
+    assert helpers.age_days(timestamp) is not None
 
 
-def test_age_days_is_none_when_there_is_no_timestamp():
-    assert helpers.age_days(None) is None
+def test_an_unparseable_timestamp_is_unknown_rather_than_zero():
     assert helpers.age_days("not a date") is None
+    assert helpers.age_days(None) is None
 
 
-def test_sizes_parse_from_the_strings_google_returns():
-    assert helpers.gb("100") == 100.0
-    assert helpers.gb(None) == 0.0
-    assert helpers.bytes_to_gb(str(5 * 1024**3)) == pytest.approx(5.0)
+def test_key_vault_reports_its_times_as_epoch_seconds():
+    """Alone among the services scanned here."""
+    week_ago = dt.datetime.now(dt.UTC) - dt.timedelta(days=7)
+    assert helpers.epoch_age_days(week_ago.timestamp()) == 7
+    assert helpers.epoch_age_days(None) is None
 
 
-def test_disk_variant_is_the_last_segment_of_the_type_url():
-    disk = {"type": "https://compute.googleapis.com/v1/projects/p/zones/z/diskTypes/pd-ssd"}
-    assert helpers.disk_variant(disk) == "pd-ssd"
-    # A disk with no type at all is priced as the oldest default rather than
-    # crashing the check that found it.
-    assert helpers.disk_variant({}) == "pd-standard"
+def test_properties_reads_both_shapes_a_resource_arrives_in():
+    """ARM nests under `properties`; a projected Graph row does not."""
+    assert helpers.properties({"properties": {"state": "Idle"}})["state"] == "Idle"
+    assert helpers.properties({"state": "Idle"})["state"] == "Idle"
 
 
-def test_instances_are_counted_per_network(make_context):
-    ctx, _ = make_context(
-        {
-            "instances.aggregatedList": {
-                "items": {
-                    "zones/us-central1-a": {
-                        "instances": [
-                            {"name": "a", "networkInterfaces": [{"network": ".../networks/prod"}]},
-                            {"name": "b", "networkInterfaces": [{"network": ".../networks/prod"}]},
-                        ]
-                    },
-                    "zones/us-east1-b": {
-                        "instances": [
-                            {"name": "c", "networkInterfaces": [{"network": ".../networks/dev"}]}
-                        ]
-                    },
-                    "zones/us-west1-a": {"warning": {"code": "NO_RESULTS_ON_PAGE"}},
-                }
-            }
-        }
+def test_arm_ids_are_compared_lowercased():
+    """ARM and Resource Graph disagree on case, and a case-sensitive
+    comparison finds nothing and reports every resource as unused."""
+    assert helpers.arm_ids([{"id": DISK_ID}]) == {DISK_ID.lower()}
+
+
+# --- generated commands ---------------------------------------------------
+
+
+def test_a_command_that_prompts_gets_yes():
+    assert helpers.az("az disk delete --name d", "sub-1", "rg-1") == (
+        "az disk delete --name d --resource-group rg-1 --subscription sub-1 --yes"
     )
-    assert helpers.instances_by_network(ctx) == {"prod": 2, "dev": 1}
 
 
-def test_aggregated_skips_scopes_that_hold_only_a_warning():
-    """Compute reports an empty zone as a warning, not as an empty list."""
-    client = FakeClient(
-        {
-            "disks.aggregatedList": {
-                "items": {
-                    "zones/us-central1-a": {"disks": [{"name": "d1"}]},
-                    "zones/us-east1-b": {"warning": {"code": "NO_RESULTS_ON_PAGE"}},
-                }
-            }
-        }
+def test_a_command_that_does_not_prompt_does_not_get_yes():
+    """`az` has no global --quiet: passing --yes to a command that does not
+    take it is an error, not a no-op."""
+    assert helpers.az("az network nic delete --name n", "sub-1", "rg-1") == (
+        "az network nic delete --name n --resource-group rg-1 --subscription sub-1"
     )
-    assert list(gcp.aggregated(client, "disks", "disks", project="p")) == [
-        ("zones/us-central1-a", {"name": "d1"})
-    ]
 
 
-def test_call_resolves_a_dotted_operation_path():
-    """A Step names its call as data, so the runner has to walk the path."""
-    client = FakeClient({"projects.secrets.delete": {"done": True}})
-    assert gcp.call(client, "projects.secrets.delete", name="projects/p/secrets/s") == {
-        "done": True
-    }
-    assert client.calls["projects.secrets.delete"] == {"name": "projects/p/secrets/s"}
+def test_a_command_with_no_resource_group_still_names_its_subscription():
+    assert helpers.az("az group delete --name rg-1", "sub-1") == (
+        "az group delete --name rg-1 --subscription sub-1 --yes"
+    )
+
+
+def test_the_verb_is_matched_before_the_flags():
+    """`az disk delete --resource-group x` must still be recognised as prompting."""
+    assert helpers._prompts("az disk delete --name d")
+    assert helpers._prompts("disk delete")
+    assert not helpers._prompts("az network lb delete --name l")
+
+
+def test_a_name_with_shell_metacharacters_stays_one_argument():
+    assert helpers.arg("a;rm -rf /") == "'a;rm -rf /'"
+    assert helpers.arg("ordinary-name") == "ordinary-name"
+    # Resource group names allow parentheses and periods, which most Azure
+    # names do not.
+    assert helpers.arg("rg (old).backup") == "'rg (old).backup'"
+
+
+def test_a_resource_delete_covers_what_core_az_has_no_verb_for():
+    assert helpers.az_resource_delete("/subscriptions/s/x", "sub-1") == (
+        "az resource delete --ids /subscriptions/s/x --subscription sub-1"
+    )
+
+
+# --- what an `az` failure tells the operator ------------------------------
+
+
+def test_a_failure_that_is_not_about_signing_in_does_not_say_to_sign_in():
+    """`az` writes a usable sentence; burying it under a wrong guess sends the
+    operator to fix something that is not broken."""
+    message = azure._az_failure(
+        ["account", "get-access-token"],
+        "ERROR: Subscription 'x' not found. Check the spelling and casing and try again.",
+    )
+    assert message == (
+        "Azure CLI: Subscription 'x' not found. Check the spelling and casing and try again."
+    )
+    assert "az login" not in message
+
+
+def test_a_sign_in_failure_does_say_to_sign_in():
+    message = azure._az_failure(
+        ["account", "show"],
+        "ERROR: Please run 'az login' to setup account.",
+    )
+    assert "Run 'az login' first." in message
+
+
+def test_an_expired_token_is_a_sign_in_failure():
+    message = azure._az_failure(
+        ["account", "get-access-token"], "AADSTS700082: refresh token expired"
+    )
+    assert "Run 'az login' first." in message
+
+
+def test_a_silent_failure_still_says_something():
+    assert azure._az_failure(["account", "show"], "") == "Azure CLI: no output."

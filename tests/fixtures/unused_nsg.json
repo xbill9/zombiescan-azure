@@ -1,0 +1,43 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkSecurityGroups/legacy-web-nsg",
+      "name": "legacy-web-nsg",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "tags": {},
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http"
+          },
+          {
+            "name": "allow-ssh-from-office"
+          }
+        ],
+        "subnets": [],
+        "networkInterfaces": [],
+        "flowLogs": []
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkSecurityGroups/web-nsg",
+      "name": "web-nsg",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http"
+          }
+        ],
+        "subnets": [
+          {
+            "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/prod-vnet/subnets/web"
+          }
+        ],
+        "networkInterfaces": []
+      }
+    }
+  ]
+}

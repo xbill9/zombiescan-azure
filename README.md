@@ -1,127 +1,201 @@
 # zombiescan
 
-[![CI](https://github.com/xbill9/zombiescan-gcp/actions/workflows/ci.yml/badge.svg)](https://github.com/xbill9/zombiescan-gcp/actions/workflows/ci.yml)
+[![CI](https://github.com/xbill9/zombiescan-azure/actions/workflows/ci.yml/badge.svg)](https://github.com/xbill9/zombiescan-azure/actions/workflows/ci.yml)
 
-Find the Google Cloud resources nobody is using, and what they cost you.
+Find the Azure resources nobody is using, and what they cost you.
 
-Not *"here are your 14 Persistent Disks"* — **"9 of these are attached to
-nothing and cost you $47/month, here is the plan to kill them."**
+Not *"here are your 14 managed disks"* — **"9 of these are attached to nothing
+and cost you $47/month, here is the plan to kill them."**
 
 ```
-$ zombiescan scan --all-projects
+$ zombiescan scan --all-subscriptions
 
-zombiescan — 18 findings across 3 projects
+zombiescan — 18 findings across 3 subscriptions
 
 Check                      Found  Monthly
-idle-filestore                 1  $256.00
-unattached-disk                3  $155.00
-gke-idle-cluster               1   $73.00
-stopped-sql-instance           1   $85.00
-stopped-instance               1   $60.00
-idle-forwarding-rule           1   $18.25
-unused-static-ip               2   $14.60
-stale-artifact-repository      1    $6.40
-orphaned-snapshot              1    $5.00
-unused-dns-zone                1    $0.20
-stale-secret                   1    $0.06
-disabled-kms-key               1    $0.06
-empty-vpc-network              1    $0.00
+idle-app-service-plan          2  $547.50
+unattached-disk                3  $191.60
+aks-idle-cluster               1   $73.00
+idle-nat-gateway               1   $32.85
+idle-load-balancer             1   $18.25
+paused-sql-database            1   $11.50
+empty-container-registry       1    $5.07
+unused-public-ip               2    $3.65
+orphaned-snapshot              1    $2.50
+disabled-key-vault-key         1    $1.00
+unused-dns-zone                1    $0.50
+orphaned-nic                   1    $0.00
+unused-nsg                     1    $0.00
 unused-subnet                  1    $0.00
-unused-firewall-rule           1    $0.00
-unbounded-log-bucket           1    $0.00
 
-┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Project     ┃ Location      ┃ Resource             ┃  Monthly ┃ Why                      ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ data-eng    │ us-central1-a │ ml-scratch           │  $256.00 │ 1024 GB ZONAL Filestore  │
-│             │               │                      │          │ instance on network      │
-│             │               │                      │          │ 'research', which runs   │
-│             │               │                      │          │ no instances that could  │
-│             │               │                      │          │ mount it                 │
-│ analytics   │ us-central1   │ old-reporting-db     │   $85.00 │ Cloud SQL instance is    │
-│             │               │                      │          │ stopped, but its 500 GB  │
-│             │               │                      │          │ of SSD storage still     │
-│             │               │                      │          │ bills                    │
-│ data-eng    │ us-central1-a │ pipeline-scratch     │   $85.00 │ 500 GB pd-ssd disk       │
-│             │               │                      │          │ attached to no instance; │
-│             │               │                      │          │ created 412 days ago     │
-│ platform    │ us-central1-a │ staging-cluster      │   $73.00 │ GKE cluster runs no      │
-│             │               │                      │          │ nodes across its 2 node  │
-│             │               │                      │          │ pool(s), but the cluster │
-│             │               │                      │          │ management fee is        │
-│             │               │                      │          │ charged per hour         │
-│             │               │                      │          │ regardless               │
-└─────────────┴───────────────┴──────────────────────┴──────────┴──────────────────────────┘
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Location   ┃ Resource grp  ┃ Resource         ┃  Monthly ┃ Why                      ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ eastus     │ web-prod-rg   │ legacy-api-plan  │  $438.00 │ App Service plan hosts   │
+│            │               │                  │          │ no apps but keeps 2 P1   │
+│            │               │                  │          │ v3 Windows instance(s)   │
+│            │               │                  │          │ reserved and billed      │
+│ eastus     │ data-rg       │ pipeline-scratch │  $135.00 │ 1024 GiB Premium_LRS     │
+│            │               │                  │          │ disk attached to no VM,  │
+│            │               │                  │          │ billed as P30 LRS;       │
+│            │               │                  │          │ created 412 days ago     │
+│ westeurope │ platform-rg   │ staging-aks      │   $73.00 │ AKS cluster runs no      │
+│            │               │                  │          │ nodes across its 2 node  │
+│            │               │                  │          │ pool(s), but the         │
+│            │               │                  │          │ Standard tier control    │
+│            │               │                  │          │ plane is charged per     │
+│            │               │                  │          │ hour regardless          │
+│ eastus     │ net-rg        │ egress-gw-old    │   $32.85 │ NAT gateway is attached  │
+│            │               │                  │          │ to no subnet, and Azure  │
+│            │               │                  │          │ charges its hourly fee   │
+│            │               │                  │          │ whether or not anything  │
+│            │               │                  │          │ routes through it        │
+└────────────┴───────────────┴──────────────────┴──────────┴──────────────────────────┘
 showing 10 of 18, costliest first with every check represented
 
-Estimated waste: $673.57/month ($8,082.84/year)
-~ marks an estimate or upper bound; the per-finding 'note' in --json output says why.
+Estimated waste: $886.92/month ($10,643.04/year)
 Estimates from list prices, not your bill. zombiescan is read-only and deleted nothing.
 ```
 
 ## Local-first
 
-zombiescan runs on your machine with the Google Cloud credentials you already
-have. There is no hosted service, no account to create, no service account key
-to hand over, and nothing is sent anywhere. Every SaaS tool in this space asks
-you to grant a role into your production project. This one never asks.
+zombiescan runs on your machine with the Azure credentials you already have.
+There is no hosted service, no account to create, no service principal to
+create, no client secret to hand over, and nothing is sent anywhere. Every SaaS
+tool in this space asks you to grant a role into your production subscription.
+This one never asks.
 
-**`scan` is read-only.** List and get calls only. It cannot change anything, by
+**`scan` is read-only.** Read calls only. It cannot change anything, by
 construction.
 
 **`clean` deletes things**, and is a separate command for that reason — it is
 not a flag you can reach by typo. It dry-runs by default, asks before each
-resource, and takes a backup first wherever Google lets it.
+resource, and takes a backup first wherever Azure lets it.
 
 ## Install
 
 ```
-gcloud auth application-default login
-uv tool install git+https://github.com/xbill9/zombiescan-gcp
+az login
+uv tool install git+https://github.com/xbill9/zombiescan-azure
 zombiescan scan
 ```
 
-Credentials are Application Default Credentials: whatever
-`google.auth.default()` finds. A user login, a service account attached to the
-VM you are on, a key file named by `GOOGLE_APPLICATION_CREDENTIALS` — all work,
-and none of them is configured here.
+Credentials come from the Azure CLI. zombiescan asks `az` for an Azure Resource
+Manager token at the start of a scan and uses it for every request, so whatever
+`az login` set up — a user, a device code, a managed identity on the VM you are
+on, a service principal — works, and none of it is configured here.
+
+### Two accounts, one email
+
+Microsoft lets one email address be **both** a work or school account and a
+personal Microsoft account. They are separate directories with separate
+subscriptions that happen to share a username, which is why signing in
+sometimes shows you a *"Work or school account / Personal account"* picker.
+`az login` takes one of them, silently.
+
+**Sign in to each one in its own Azure CLI config directory.** The CLI looks
+tokens up by username, so two identities sharing one address in the same
+`~/.azure` break it for both: every `az account get-access-token` then fails
+with *"Found multiple accounts with the same username"*
+([azure-cli#20168](https://github.com/Azure/azure-cli/issues/20168)), and
+nothing can be scanned until the cache is cleared with
+`az logout --username <address>`. `AZURE_CONFIG_DIR` keeps them apart:
+
+```
+az login                                                    # pick "Work or school account"
+AZURE_CONFIG_DIR=~/.azure-personal az login --tenant <id>   # pick "Personal account"
+```
+
+Pass `--tenant` for the personal account. Its subscriptions live in a directory
+of its own (usually named *Default Directory*), and a plain `az login` lists
+that tenant, prints a warning, and holds no token for it when the tenant
+requires multi-factor authentication. The warning names the tenant id;
+`--tenant` asks for MFA and signs in to it.
+
+zombiescan runs `az` as a subprocess, so the same variable picks the account
+for a scan:
+
+```
+zombiescan scan --all-subscriptions                                    # work
+AZURE_CONFIG_DIR=~/.azure-personal zombiescan scan --all-subscriptions # personal
+```
+
+**`zombiescan scan --all-subscriptions` covers every tenant the CLI has signed
+into** under that config directory, not just the current one. An ARM token is
+issued for a single tenant, so it holds one per tenant and routes each request
+to the right one — a scan that held a single token would quietly cover half of
+what you can see and report less waste than there is. Identities with
+different usernames share one config directory without trouble, and the header
+says so when a scan spans more than one tenant:
+
+```
+2 subscription(s) across 2 tenants, 22 check(s) — read-only
+```
+
+A full sweep also runs `az account list --refresh`, which costs about a second
+and picks up subscriptions created since the last login.
+
+**There is no Azure SDK in the dependency list.** `click` and `rich` are the
+only two, and HTTP is `urllib` from the standard library. Every Azure call in
+this tool goes to one REST surface, so a new check is an api-version entry
+rather than another `azure-mgmt-*` package.
 
 ## Usage
 
 ```
-zombiescan checks                     # list the checks
-zombiescan apis                       # the APIs those checks need enabled
-zombiescan scan                       # the project gcloud is configured for
-zombiescan scan --all-projects        # every active project you can see
-zombiescan scan --project prod-1 --project prod-2
-zombiescan scan --location us-central1    # keeps us-central1-a, -b, -c too
-zombiescan scan --check unattached-disk --check unused-static-ip
-zombiescan scan --min-cost 5          # hide findings under $5/month
-zombiescan scan --limit 0             # every finding, not just the top 25
-zombiescan scan --json findings.json  # machine-readable, full detail
-zombiescan scan --html report.html    # shareable report; print to PDF from a browser
-zombiescan scan --script cleanup.sh   # write the plan (never runs it)
+zombiescan checks                         # list the checks
+zombiescan providers                      # the resource providers those checks read
+zombiescan scan                           # the subscription az is set to
+zombiescan scan --all-subscriptions       # every enabled subscription you can see
+zombiescan scan --subscription <id> --subscription <id>
+zombiescan scan --location eastus         # "East US" works too
+zombiescan scan --check unattached-disk --check unused-public-ip
+zombiescan scan --min-cost 5              # hide findings under $5/month
+zombiescan scan --limit 0                 # every finding, not just the top 25
+zombiescan scan --json findings.json      # machine-readable, full detail
+zombiescan scan --html report.html        # shareable report; print to PDF from a browser
+zombiescan scan --script cleanup.sh       # write the plan (never runs it)
 ```
 
-A full 20-check sweep of one project takes a few seconds.
+A full 22-check sweep of one subscription takes a few seconds.
 
-### One pass per project, not per region
+### One pass per subscription, not per region
 
 An AWS scanner has to fan out across every region, because almost every AWS
-list call is regional. Google Cloud does not work that way, and zombiescan
-does not pretend it does:
+list call is regional. Azure does not work that way, and zombiescan does not
+pretend it does:
 
-- **Compute Engine has `aggregatedList`.** One call returns disks, addresses,
-  instances or routers across every zone and region at once.
-- **Most other APIs accept `locations/-`**, a wildcard meaning every location.
+- **An ARM list call is subscription-wide.** One request to
+  `/subscriptions/<id>/providers/Microsoft.Compute/disks` returns every disk in
+  every resource group in every region.
+- **Azure Resource Graph answers a join in one query.** Where a check has to
+  cross-reference two resource types, one KQL query does it server-side
+  instead of pulling both inventories down.
 
-So the unit of fan-out is the **project**. Each finding still records the exact
-`location` it lives in — a zone, a region, or `global` — because that is what
-you need to delete it, and `--location` filters on that.
+So the unit of fan-out is the **subscription**. Each finding records the region
+it lives in and, because no `az` command works without one, the **resource
+group** — neither is derivable from the other, so both are first-class fields.
 
-Two APIs reject the wildcard and are walked location by location instead: Cloud
-KMS and Artifact Registry. Those checks enumerate locations themselves and
-fetch them in parallel.
+### A quiet failure Azure has and Google does not
+
+A resource provider that has never been used on a subscription is *not
+registered*, and ARM answers a list call against an unregistered provider with
+**HTTP 200 and an empty page**. A scanner that simply made the call would find
+nothing and report the subscription clean — a false all-clear, which is the
+worst thing a tool like this can produce.
+
+So zombiescan reads each subscription's provider registrations first, once, and
+refuses to run a check whose provider is missing. Those pairs are counted under
+`pairs_unavailable` and reported out loud:
+
+```
+10 of 22 subscription/check pair(s) were skipped: their resource provider is not
+registered, so there is nothing of that kind here.
+```
+
+"No waste found" and "no waste found in the ten services this subscription
+actually uses" are different statements. The report makes clear which one it is
+making.
 
 ## The Claude Code plugin
 
@@ -129,35 +203,35 @@ The same engine, reachable from an agent instead of a terminal. It ships in
 [`plugin/`](plugin/) and installs from this repository:
 
 ```
-/plugin marketplace add xbill9/zombiescan-gcp
+/plugin marketplace add xbill9/zombiescan-azure
 /plugin install zombiescan@zombiescan
 ```
 
 That gives you `/zombiescan` to scan, `/zombie-cleanup` to see what a cleanup
 would do, and a skill that picks itself up whenever the conversation turns to
-Google Cloud spend. Behind them is an MCP server with five tools:
+Azure spend. Behind them is an MCP server with five tools:
 
 | Tool | What it does |
 | --- | --- |
 | `list_checks` | What the scanner looks for. No credentials needed. |
-| `scan_project` | Scans, prices, writes the JSON report, returns the totals |
+| `scan_subscription` | Scans, prices, writes the JSON report, returns the totals |
 | `estimate_savings` | Totals and breakdowns over a report, with a filter |
 | `explain_finding` | Why a resource counts as waste and what keeping it costs |
-| `plan_cleanup` | The calls a cleanup would make, and which have no undo |
+| `plan_cleanup` | The requests a cleanup would send, and which have no undo |
 
 **Every tool is read-only.** `plan_cleanup` builds the same plan `clean` shows
 on a dry run and stops there; `clean.apply_outcome`, the one function that
-sends a step to Google Cloud, is not reachable from the server, and the suite
-asserts that the module does not name it. Applying a plan stays `zombiescan
-clean --apply` at your own terminal, where the per-resource prompt and the
+sends a step to Azure, is not reachable from the server, and the suite asserts
+that the module does not name it. Applying a plan stays `zombiescan clean
+--apply` at your own terminal, where the per-resource prompt and the
 irreversible-step warning are.
 
 The tools return figures already computed — totals, counts, per-check,
-per-location and per-project breakdowns, the cheapest and costliest row — and
-echo the filter they applied under `filter_applied`. A filter naming a check
-that is not in the report returns an exact, sourced zero, which reads like good
-news; the echo carries `no_such_checks_in_report` so the mistake is visible in
-the answer rather than in next month's bill.
+per-location, per-subscription and per-resource-group breakdowns, the cheapest
+and costliest row — and echo the filter they applied under `filter_applied`. A
+filter naming a check that is not in the report returns an exact, sourced zero,
+which reads like good news; the echo carries `no_such_checks_in_report` so the
+mistake is visible in the answer rather than in next month's bill.
 
 The server speaks JSON-RPC over stdio using the standard library alone, so
 installing zombiescan does not pull an MCP SDK in behind it. It can also be run
@@ -169,147 +243,194 @@ zombiescan-mcp     # or: uv run zombiescan-mcp
 
 ## Checks
 
-Twenty checks in two packs. `core` covers the services almost every project
-uses; `gke` is a separate pack because Kubernetes Engine is a whole service
-with its own API and its own pricing.
+Twenty-two checks in two packs. `core` covers the services almost every
+subscription uses; `aks` is a separate pack because Kubernetes Service is a
+whole service with its own provider and its own pricing.
 
 | Check | Finds | Costs money |
 | --- | --- | --- |
-| `unattached-disk` | Persistent Disks with no `users` | per GB-month, by disk type |
-| `unused-static-ip` | Reserved external IPs attached to nothing | yes, at the *idle* rate |
-| `stopped-instance` | TERMINATED or SUSPENDED VMs | the disks they keep |
-| `orphaned-snapshot` | Snapshots whose source disk is gone | per stored GB-month |
-| `unused-image` | Custom images nothing boots from | per stored GB-month |
-| `idle-cloud-nat` | Cloud NAT in a network with no VMs | the addresses it reserves |
-| `idle-forwarding-rule` | Load balancers with no backends | the forwarding rule minimum |
-| `unused-subnet` | Subnets in networks running nothing | no — the IP range is the cost |
-| `unused-firewall-rule` | Rules disabled, or targeting a tag nothing carries | no |
-| `empty-vpc-network` | Networks with nothing running in them | whatever priced waste is inside |
-| `stopped-sql-instance` | Cloud SQL stopped but still storing | storage, doubled if regional |
-| `unused-dns-zone` | Managed zones holding only SOA and NS | yes, at the marginal tier |
-| `stale-secret` | Secrets with no new version in 90 days | per enabled version, per replica |
-| `disabled-kms-key` | Key versions disabled but not destroyed | yes — disabling does not stop it |
-| `idle-filestore` | Filestore in a network with no compute | per provisioned GB-month |
-| `stale-artifact-repository` | Repositories with no push in 90 days | per GB-month, as an upper bound |
-| `unbounded-log-bucket` | Log buckets that never expire their contents | unpriced; reported as growth |
-| `unmanaged-gcs-bucket` | Versioned buckets with no lifecycle rule | unpriced; reported as growth |
-| `unused-uptime-check` | Uptime checks watching deleted VMs | no — reported for the alerts |
-| `gke-idle-cluster` | GKE clusters running no nodes | **$73/month, whatever is on them** |
+| `unattached-disk` | Managed disks in `Unattached` state | yes, at the disk's **tier** rate |
+| `deallocated-vm` | VMs stopped or deallocated | the disks they keep |
+| `orphaned-snapshot` | Snapshots whose source disk is gone | per stored GB-month, as a ceiling |
+| `unused-image` | Managed images nothing boots from | per stored GB-month |
+| `unused-public-ip` | Static public IPs attached to nothing | yes, at the ordinary rate |
+| `idle-nat-gateway` | NAT gateways with no subnet | **yes, ~$32.85/month flat** |
+| `idle-load-balancer` | Standard load balancers with empty backend pools | the included-rules charge |
+| `orphaned-nic` | Network interfaces belonging to no VM | no — it blocks other deletions |
+| `unused-nsg` | Security groups on no subnet and no NIC | no |
+| `unused-subnet` | Subnets with nothing in them | no — the IP range is the cost |
+| `empty-vnet` | Virtual networks with no NIC in any subnet | whatever priced waste is inside |
+| `idle-app-service-plan` | Plans hosting no apps | **yes, the full reserved instances** |
+| `paused-sql-database` | Serverless databases paused but still stored | provisioned storage |
+| `unused-dns-zone` | Public zones holding only SOA and NS | yes, at the marginal tier |
+| `stale-key-vault-secret` | Secrets with no new version in 90 days | no — Key Vault bills per operation |
+| `disabled-key-vault-key` | Keys disabled but not deleted | yes for HSM keys, free for software |
+| `empty-container-registry` | Registries holding no images | yes — the tier fee is flat |
+| `unbounded-log-workspace` | Workspaces with no daily cap and long retention | unpriced; reported as growth |
+| `unmanaged-storage-account` | Versioned accounts with no lifecycle policy | unpriced; reported as growth |
+| `unused-availability-test` | Web tests watching a deleted component | no — reported for the alerts |
+| `empty-resource-group` | Resource groups containing nothing | no |
+| `aks-idle-cluster` | AKS clusters running no nodes | **$73/month on Standard, $0 on Free** |
 
-Three of these behave differently from the AWS equivalent people expect:
+### Four that behave differently from what people expect
 
-- **An idle Cloud NAT is nearly free.** Google bills NAT gateway uptime per VM
-  using it, so a gateway with nothing behind it costs only the external
-  addresses it holds. An AWS NAT gateway bills a flat ~$32/month regardless,
-  which is why it tops every AWS waste list and does not top this one.
-- **A GKE cluster costs $0.10/hour whether or not anything runs on it.**
-  Scaling every node pool to zero removes the node cost and leaves the $73/month
-  management fee exactly where it was.
-- **A reserved static IP costs more idle than in use.** Google charges a higher
-  hourly rate for an address attached to nothing, so this is one of the few
-  places where the waste is more expensive than the work.
+- **An idle NAT gateway is expensive.** Azure bills it a flat ~$0.045/hour —
+  about $32.85 a month — from creation to deletion, whether or not a subnet is
+  attached. That is the AWS shape, and the *reverse* of Google's Cloud NAT,
+  which bills gateway uptime per VM using it and so costs almost nothing when
+  idle.
+- **An idle AKS cluster may be free.** Only the Standard and Premium tiers pay
+  for a control plane; a **Free**-tier cluster scaled to zero costs nothing at
+  all. That is the reverse of GKE, where the management fee is charged whatever
+  the cluster is doing. The check prices each cluster at its own tier and says
+  which it found.
+- **A managed disk is billed by tier, not by gigabyte.** A 1 GiB Premium SSD
+  and a 128 GiB one are both a P10 and both cost $19.71 a month in `eastus`.
+  Shrinking a disk saves nothing until it crosses a rung; deleting it saves
+  everything. Only Premium SSD v2 and Ultra bill per provisioned GiB.
+- **An unattached public IP costs the same as an attached one.** Azure charges
+  one hourly rate either way, so nothing about the price signals that an
+  address is idle — unlike Google, which charges *more* for a reserved address
+  attached to nothing. What makes an Azure address waste is simply that it is
+  still reserved.
 
 ## About the numbers
 
-Costs are estimates from on-demand **list prices**, not from your bill. They
-ignore committed use discounts, sustained use discounts, private pricing and
-credits.
+Costs are estimates from pay-as-you-go **list prices**, not from your bill.
+They ignore reservations, savings plans, Azure Hybrid Benefit, dev/test rates,
+enterprise agreement pricing and credits.
 
-Prices come from the Cloud Billing Catalog API, not from anyone's memory, and
-are regenerated with:
+Prices come from the [Azure Retail Prices
+API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices),
+not from anyone's memory, and are regenerated with:
 
 ```
 uv run python -m zombiescan.pricing.refresh
 ```
 
-The table is per-region because region moves the number: a Filestore GB is
-$0.25/month zonal and $0.45 regional, and Cloud SQL SSD storage runs from
-$0.17 to well over $0.40 depending on where it sits.
+That API is public: no credentials, no subscription, no `az login`. The table
+is per-region where Azure prices per region, because region moves the number.
 
-**Reading the catalog correctly is the subtle part.** Google fronts many SKUs
-with a free allowance priced at zero — the first 30 GB of standard Persistent
-Disk, the first 0.5 GB of Artifact Registry, the first six secret versions.
-Taking tier 0 of those records the rate as free, which does not fail loudly: it
-silently prices every finding in that section at nothing and the scan reports a
-clean project. The refresher takes the first tier that actually charges, and
-refuses to write a table that empties a section the previous one had.
+**Reading the catalog correctly is the subtle part**, and it fails silently
+four different ways. Every one of these was measured against the live API
+rather than recalled:
+
+- **`priceType` must be `Consumption`.** The same meter is published as
+  `Reservation` and `DevTestConsumption` too, at a fraction of the price.
+- **A tiered meter's rows come back in no particular order, and the first
+  tier is often free.** Log Analytics ingestion is published as $0.00 up to 5
+  GB and $2.30 after it. Key Vault HSM keys come back as $5.00, $0.90, $2.50
+  and $0.40, tiered at 0, 1500, 250 and 4000. The refresher sorts by
+  `tierMinimumUnits` and takes the first tier that actually charges.
+- **The meter name distinguishes the capacity charge from its neighbours.**
+  `P80 LRS Disk` is $3,604.11 a month; `P80 LRS Disk Mount` is $219.00 and
+  `P80 LRS Disk Operations` is fractions of a cent. All three carry the same
+  SKU name, so matching on the SKU alone understates a large disk sixteenfold
+  and still looks like a working price table.
+- **Some meters have no ARM region at all.** NAT Gateway and Load Balancer are
+  published against `armRegionName` "Global"; Azure DNS against a billing
+  geography spelled "Zone 1", which shares a word with availability zones and
+  means something unrelated. A per-region fetcher returns an empty section for
+  all three.
+
+The refresher refuses to write a table that empties or drops a section the
+previous one had, because an empty section is a failed fetch rather than a
+price of zero.
 
 A `~` next to a cost means it is an estimate or an upper bound — the region had
-no price entry, the resource type was unrecognised, or the resource bills
-incrementally rather than on provisioned size. Every finding carries a `note`
-in `--json` output saying which.
+no price entry, the SKU was unrecognised, or the resource bills on what it uses
+rather than on what it provisioned. Every finding carries a `note` in `--json`
+output saying which.
 
 ## What it deliberately does not flag
 
 Checks would rather miss waste than invent it. A false positive here costs
 someone an outage.
 
-- The newest image in a family is live even if nothing names it directly: a
-  template pinned to `--image-family` resolves to it.
-- A snapshot with no recorded source disk cannot be *proven* orphaned.
-- Snapshots are matched by source disk **id**, not name — a disk deleted and
-  recreated under the same name is a different disk.
-- A subnet Google created for its own plumbing (proxy-only, Private Service
-  Connect) is load-bearing.
-- A spare subnet inside a network that *is* running something may be waiting
-  for a workload.
-- A firewall rule with no target tags applies to everything in the network.
-  That is broad, not unused.
-- An empty Artifact Registry repository costs nothing.
-- A log bucket retaining a year is a policy; ten years is an oversight.
-  `_Required` is fixed by Google at 400 days and cannot be changed at all.
-- An uptime check pointed at an external URL is never judged — nothing in the
-  project says whether that hostname is still meant to be up.
+- A disk reporting `Unattached` while `managedBy` still names an owner belongs
+  to something that is not a VM — a disk pool, a restore in flight.
+- A NIC with no `virtualMachine` may back a private endpoint or a private link
+  service, both of which are emphatically in use.
+- A subnet with a **delegation** hands address management to a service that
+  then uses it, and reports no IP configurations while doing so.
+- `GatewaySubnet`, `AzureFirewallSubnet` and `AzureBastionSubnet` are named by
+  Azure and exist to be empty until the gateway lands in them.
+- A resource group Azure manages on another resource's behalf — an AKS node
+  group scaled to zero is the common one — is empty because its cluster is
+  idle, not because it is abandoned.
+- A container registry that refuses the usage call is behind a firewall, not
+  empty; a failed read is not evidence.
+- An image can be referenced by a scale set, a gallery version, a deployment
+  template or a VM in another subscription, none of which this scan can see.
+- A Log Analytics workspace with a daily cap, or with short retention, has had
+  a decision made about it.
 
 Two checks report **staleness**, which is a prompt to look rather than a
-verdict. `stale-secret` is judged on the age of the newest version, because
-Secret Manager does not report access times through this API; the finding says
-so rather than claiming the secret is unread. `stale-artifact-repository` is
-priced as an explicit upper bound: Artifact Registry bills each unique layer
-once, and images sharing a base layer are counted once per image here.
+verdict. `stale-key-vault-secret` is judged on the age of the newest version,
+because the management plane does not report access times; the finding says so
+rather than claiming the secret is unread. It is also explicitly priced at
+zero — Key Vault bills per operation, not per stored secret — so the reason to
+act on it is that an unrotated credential is a credential, not that it is
+expensive.
 
 ## Cleaning up
 
 `scan` tells you what to delete. `clean` does it.
 
 ```
-zombiescan clean                          # dry run: prints the exact API calls, changes nothing
+zombiescan clean                          # dry run: prints the exact requests, changes nothing
 zombiescan clean --apply                  # asks before each resource
 zombiescan clean --apply --yes            # no prompts
 zombiescan clean --from findings.json     # act on a report you have already read
-zombiescan clean --check unused-static-ip --apply
+zombiescan clean --check unused-public-ip --apply
 zombiescan clean --apply --audit audit.json
 ```
 
 **Dry run is the default and it is exact.** `--apply` changes one thing:
-whether a planned call is sent. It does not change which calls get planned, so
-what the dry run shows is what the real run does.
+whether a planned request is sent. It does not change which requests get
+planned, so what the dry run shows is what the real run does.
 
-**Backups come first where Google allows one.** Disks are snapshotted before
-deletion and Cloud SQL instances given a backup run before they go. If the
-backup step fails, the destructive step that assumed it does not run.
+**Backups come first where Azure allows one.** A disk is snapshotted before
+deletion — incrementally, so it costs very little — and if that step fails, the
+delete that assumed it does not run.
 
-**Irreversible steps are labelled.** Deleting a disk after snapshotting it is
-recoverable; deleting the snapshot is not. Releasing a static IP returns it to
-Google's pool, and deleting a secret, a DNS zone, an Artifact Registry
-repository or a GKE cluster destroys what is in it with no undo. Destroying a
-KMS key version is *not* marked irreversible: Google holds it for 24 hours and
-`gcloud kms keys versions restore` brings it back.
+**Irreversible steps are labelled, and Azure has fewer of them than most
+clouds.** The flag marks the cases with no recovery window at all:
 
-**Deleting a stopped VM keeps its disks.** The plan clears `autoDelete` on
-every attached disk first, as its own step, so the dry run shows exactly which
-disks are about to be spared. They then show up as `unattached-disk` on the
-next scan, with a snapshot-first plan of their own.
+- Releasing a **public IP address** is final. Azure returns it to the regional
+  pool and will not hand the same one back, so anything with it in a DNS
+  record or a partner's allow-list breaks.
+- Deleting an **orphaned snapshot** is final: the snapshot *is* the backup, and
+  its source disk is already gone.
+- Deleting an **AKS cluster** destroys the control plane and every object in
+  it.
 
-**`--audit` writes a record** of every call attempted, its parameters, its
-result and what it saved — the file you will want when someone asks what
-happened.
+Deleting a **Key Vault key** is *not* marked: soft-delete is mandatory and
+keeps it recoverable for the vault's retention period — which also means the
+key keeps being billed until that window closes, so the saving starts later
+than the command returns. Deleting a **SQL database** is not marked either: it
+restores from point-in-time backups for the server's retention period.
 
-Four findings have no cleaner, and say why instead of guessing:
-`empty-vpc-network` (the deletion order depends on what else references what),
-`idle-filestore` (the backup that would make it safe needs a region and tier
-nothing chooses for you), `unbounded-log-bucket` and `unmanaged-gcs-bucket`
-(both are judgements about what the project must keep).
+**Deleting a VM keeps its disks.** ARM detaches rather than deletes a managed
+disk by default, so the OS and data disks survive and show up as
+`unattached-disk` on the next scan, with a snapshot-first plan of their own.
+
+**An empty resource group is re-checked before it is planned.** `az group
+delete` removes everything inside without listing what that was, and a scan is
+a snapshot — something can be deployed into the group between the scan and the
+apply. The cleaner lists the group again during planning and refuses if
+anything has appeared.
+
+**`--audit` writes a record** of every request attempted, its body, its result
+and what it saved — the file you will want when someone asks what happened.
+
+Five findings have no cleaner, and say why instead of guessing: `empty-vnet`
+(the deletion order depends on what else references what), `unused-image` (a
+reference this scan cannot see would break the next scale-out),
+`stale-key-vault-secret` (deleting a live credential takes an application
+down), `unbounded-log-workspace` and `unmanaged-storage-account` (both are
+judgements about what must be kept, and a cap set too low silently drops the
+logs an incident would be investigated from).
 
 ### Permissions for cleaning
 
@@ -323,23 +444,29 @@ to remove.
 `--script` writes a plan. zombiescan never runs it, and has no flag that will.
 
 Every value interpolated into a command is shell-quoted, so a resource name
-cannot become a command in the file you are about to execute. Google's own
+cannot become a command in the file you are about to execute. Azure's own
 naming rules make that unreachable today, but a tool whose whole proposition is
 handing you a script to run should not depend on a remote service's input
-validation for local shell safety.
+validation for local shell safety. Resource *group* names are the ones to watch:
+Azure allows parentheses and periods in them.
 
-Every generated command carries `--project` and `--quiet`. The first means
-pasting one into a shell configured for a different project deletes nothing by
-surprise; the second means it cannot block on a confirmation prompt that a
-script has no way to answer.
+Every generated command carries `--subscription`, so pasting one into a shell
+pointed at a different subscription deletes nothing by surprise.
+
+**`--yes` is added only where the command takes it.** `az` has no global
+equivalent of `gcloud --quiet`: `--yes` exists on the commands that would
+otherwise prompt and nowhere else, and passing it to one that would not is an
+error rather than a no-op — `az network nic delete --yes` fails outright. The
+list of commands that accept it lives in `helpers.CONFIRMS` and the live test
+re-checks it against the Azure CLI you actually have installed.
 
 ## Output formats
 
 **`--json`** is a versioned contract, not a dump. The schema lives at
 [`docs/findings.schema.json`](docs/findings.schema.json) and the suite
-validates against it. Check `schema_version` before parsing: it is `3`, and
-findings carry `project` and `location` where earlier versions carried
-`region`.
+validates against it. Check `schema_version` before parsing: it is `4`, and
+findings carry `subscription`, `resource_group`, `location` and the full
+`arm_id`.
 
 **`--html`** is a single self-contained file — no stylesheet, no font, no
 script, no network request — with a print stylesheet, because printing to PDF
@@ -351,25 +478,26 @@ saves and why the resource was flagged.
 ## Exit codes
 
 `0` on success, including when a scan finds nothing. `1` when every
-project/check pair failed — a scan that reached nothing found nothing, and
-exiting `0` would tell a CI job the project was clean. `2` for a bad invocation
-or missing credentials.
+subscription/check pair failed — a scan that reached nothing found nothing, and
+exiting `0` would tell a CI job the subscription was clean. `2` for a bad
+invocation or missing credentials.
 
-A check whose API is switched off on a project is **not** a failure. It is
-counted under `pairs_unavailable` and skipped, because a project that has never
-used Filestore has no Filestore waste.
+A check whose resource provider is not registered on a subscription is **not** a
+failure. It is counted under `pairs_unavailable` and skipped, because a
+subscription that has never used App Service has no App Service waste.
 
 ## Permissions
 
-[`policy/zombiescan-scanner-role.yaml`](policy/zombiescan-scanner-role.yaml) is
-a custom role holding exactly the list and get permissions the checks use.
-`zombiescan apis` prints the APIs behind them, and the suite fails if a check
-declares an API the role does not cover.
+[`policy/zombiescan-scanner-role.json`](policy/zombiescan-scanner-role.json) is
+an Azure custom role holding exactly the read actions the checks use.
+`zombiescan providers` prints the providers behind them, and the suite fails if
+a check declares a provider the role does not cover — or if the role grants any
+action that is not a read.
 
 It has not been verified under a principal actually constrained by it —
-credentials with Owner or Editor are not limited the way the role describes.
-Bind it to a dedicated service account and scan with that before relying on the
-claim.
+credentials with Owner or Contributor are not limited the way the role
+describes. Assign it to a dedicated service principal and scan with that before
+relying on the claim.
 
 ## Development
 
@@ -381,26 +509,30 @@ uv run ruff format . && uv run ruff check --fix .
 make help                                   # the rest
 ```
 
-Checks are tested against committed JSON fixtures of real API responses, so the
+Checks are tested against committed JSON fixtures of real ARM responses, so the
 suite runs offline with no credentials. Every check has a fixture and a test
 file of its own, and `tests/test_packs.py` fails if one does not.
+
+The live test does two things the offline suite structurally cannot: it
+verifies every pinned `api-version` against what ARM currently accepts, and it
+verifies the `--yes` list against the installed Azure CLI. Both are facts about
+the outside world that a comment cannot keep true.
 
 ### Packs
 
 Checks live in packs under `src/zombiescan/packs/<pack>/`, discovered by
 existing rather than listed in an import block. A pack owns its checks, its
-cleaners, its price rates and the fetchers that refresh them. `core` and `gke`
+cleaners, its price rates and the fetchers that refresh them. `core` and `aks`
 are built in and load through the same path as a pack installed from PyPI, so
 the seam is exercised on every run rather than only by third parties.
 
 [`docs/PACKS.md`](docs/PACKS.md) is the pack-author contract.
 
-**A pack is code that runs with your Google Cloud credentials**, and nothing
-here verifies that its checks only read. The read-only guarantee holds for the
-packs in this repository because they are reviewed. Install third-party packs
-on the same judgement you would apply to any other dependency.
+**A pack is code that runs with your Azure credentials**, and nothing here
+verifies that its checks only read. The read-only guarantee holds for the packs
+in this repository because they are reviewed. Install third-party packs on the
+same judgement you would apply to any other dependency.
 
 ## License
 
 MIT.
-EOF
