@@ -1,0 +1,2 @@
+medium = https://xbill999.medium.com/what-nobody-is-using-in-your-google-cloud-projects-and-what-it-costs-6613d745c4bc
+repo = https://github.com/xbill9/zombiescan-gcp
