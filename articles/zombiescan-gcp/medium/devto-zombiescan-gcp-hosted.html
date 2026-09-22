@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>What Nobody Is Using in Your Google Cloud Projects, and What It Costs</title>
+  <meta name="description" content="A local-first CLI that scans Google Cloud projects for unused resources, prices each one from the Cloud Billing Catalog API, and drafts the cleanup. One call per project instead of one per region, read-only by default, and a Claude Code plugin over the same engine." />
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <style>
+    body{font-family:-apple-system,'Segoe UI',Roboto,'Liberation Sans',Arial,sans-serif;
+         font-size:18px;line-height:1.58;max-width:42em;color:#242424;}
+    h1,h2,h3,h4{font-weight:700;line-height:1.25;margin-top:1.8em;}
+    h4{font-size:1.25em;}
+    img{max-width:100%;height:auto;display:block;margin:1.6em 0;}
+    pre{background:#f7f7f7;border:1px solid #e6e6e6;border-radius:4px;
+        padding:12px 14px;overflow-x:auto;font-size:14px;line-height:1.45;}
+    code{font-family:'Liberation Mono',Menlo,Consolas,monospace;}
+    :not(pre)>code{background:#f2f2f2;padding:1px 5px;border-radius:3px;font-size:.9em;}
+    blockquote{border-left:3px solid #ddd;margin-left:0;padding-left:1em;color:#555;}
+    hr{border:0;border-top:1px solid #e6e6e6;margin:2.4em 0;}
+  </style>
+</head>
+<body>
+<figure><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-cover.9367f6aa.jpg" alt="What Nobody Is Using in Your Google Cloud Projects, and What It Costs" /></figure>
+<p>This article provides a step by step guide to building a Google Cloud
+waste scanner from source, running it across every project your
+credentials can see, pricing each finding from the Cloud Billing Catalog
+API, and drafting the cleanup. A suite of Python checks is built to
+cover Compute Engine, Cloud SQL, Storage, DNS, KMS, Secret Manager,
+Artifact Registry, Filestore, Cloud Logging, Cloud Monitoring and
+GKE.</p>
+<p><a
+href="https://github.com/xbill9/zombiescan-gcp">https://github.com/xbill9/zombiescan-gcp</a></p>
+<hr />
+<h4 id="what-gets-left-behind">What Gets Left Behind</h4>
+<p>A Persistent Disk survives the instance it was attached to. A static
+IP outlives the migration that freed it. A GKE cluster keeps charging
+its management fee after the last node pool scaled to zero. Each one
+bills every hour and reports nothing.</p>
+<p>The billing console shows the total. The Recommender surfaces
+candidates. A figure that drives a decision names one resource, in one
+project, and its monthly cost.</p>
+<p><code>zombiescan</code> produces that figure for 20 classes of
+resource across two packs.</p>
+<hr />
+<h4 id="at-this-point-you-should-have">At This Point You Should
+Have…</h4>
+<ul>
+<li>A Google Cloud account and Application Default Credentials, from
+<code>gcloud auth application-default login</code></li>
+<li><code>uv</code> on the path, and Python 3.11 or newer</li>
+<li>Read access to the projects you mean to scan — the predefined
+<code>roles/viewer</code> covers every call, and
+<code>zombiescan-scanner-role.yaml</code>, under <code>policy/</code> in
+the repository, is a 16-permission custom role that covers exactly as
+much</li>
+</ul>
+<hr />
+<h4 id="step-1--build-it-from-source">Step 1 — Build It From Source</h4>
+<pre class="shell"><code>git clone https://github.com/xbill9/zombiescan-gcp
+cd zombiescan-gcp
+uv sync
+Resolved 39 packages in 0.58ms
+Checked 38 packages in 0.19ms</code></pre>
+<p><code>uv sync</code> reads the committed <code>uv.lock</code>, so the
+resolved set is the one the tests ran against.</p>
+<pre class="shell"><code>uv run zombiescan --version
+zombiescan, version 0.1.0</code></pre>
+<hr />
+<h4 id="step-2--install-it-as-a-tool">Step 2 — Install It as a Tool</h4>
+<p>Working from the clone keeps <code>uv run</code> in front of every
+command. Installing it puts <code>zombiescan</code> on the path
+instead.</p>
+<pre class="shell"><code>uv tool install git+https://github.com/xbill9/zombiescan-gcp</code></pre>
+<p>Both routes run the same engine. The rest of this article uses the
+installed form.</p>
+<hr />
+<h4 id="step-3--authenticate">Step 3 — Authenticate</h4>
+<pre class="shell"><code>gcloud auth application-default login</code></pre>
+<p><code>google.auth.default()</code> picks that up. No key file is
+downloaded, and no service account is created.</p>
+<p>Every worker thread in a scan shares one credentials object, and the
+first token is fetched before the threads start. Refreshing credentials
+signs through OpenSSL, and one credentials object refreshed from several
+threads at once ends the process instead of raising, so the wrapper
+serialises the refreshes behind a lock.</p>
+<hr />
+<h4 id="step-4--list-the-checks">Step 4 — List the Checks</h4>
+<pre class="shell"><code>zombiescan checks
+  disabled-kms-key  Disabled KMS key versions still billing  (core)
+  empty-vpc-network  VPC networks with nothing running in them  (core)
+  gke-idle-cluster  GKE clusters running no nodes  (gke)
+  idle-cloud-nat  Cloud NAT gateways serving no instances  (core)
+  idle-filestore  Filestore instances nothing can mount  (core)
+  idle-forwarding-rule  Load balancers with no backends  (core)
+  orphaned-snapshot  Snapshots of deleted disks  (core)
+  stale-artifact-repository  Artifact Registry repositories with no recent pushes  (core)
+  stale-secret  Secrets nothing has updated in 90 days  (core)
+  stopped-instance  Stopped instances still paying for disks  (core)
+  stopped-sql-instance  Stopped Cloud SQL instances still paying for storage  (core)
+  unattached-disk  Unattached Persistent Disks  (core)
+  unbounded-log-bucket  Log buckets retaining logs indefinitely  (core)
+  unmanaged-gcs-bucket  Versioned buckets with no lifecycle rule  (core)
+  unused-dns-zone  Cloud DNS zones publishing nothing  (core)
+  unused-firewall-rule  Firewall rules matching nothing  (core)
+  unused-image  Custom images nothing boots from  (core)
+  unused-static-ip  Unused static IP addresses  (core)
+  unused-subnet  Subnets reserving ranges nothing uses  (core)
+  unused-uptime-check  Uptime checks monitoring deleted resources  (core)</code></pre>
+<p>Nineteen ship in the <code>core</code> pack and one in
+<code>gke</code>. GKE sits in its own pack because it carries its own
+API, its own rate section and its own price fetcher, which is what a
+third-party pack has to supply.</p>
+<hr />
+<h4 id="step-5--which-apis-the-checks-need">Step 5 — Which APIs the
+Checks Need</h4>
+<pre class="shell"><code>zombiescan apis
+  artifactregistry.googleapis.com  1 check(s)
+  cloudkms.googleapis.com  1 check(s)
+  compute.googleapis.com  12 check(s)
+  container.googleapis.com  1 check(s)
+  dns.googleapis.com  1 check(s)
+  file.googleapis.com  1 check(s)
+  logging.googleapis.com  1 check(s)
+  monitoring.googleapis.com  1 check(s)
+  secretmanager.googleapis.com  1 check(s)
+  sqladmin.googleapis.com  1 check(s)
+  storage.googleapis.com  1 check(s)
+ 
+An API that is not enabled on a project is skipped, not reported as an error: a
+project that never used a service has no waste in it.</code></pre>
+<p>Each check declares the APIs it calls. That declaration generates
+this list and the read-only custom role, and the test suite fails when a
+check names an API the role does not cover.</p>
+<hr />
+<h4 id="step-6--scan-one-project">Step 6 — Scan One Project</h4>
+<pre class="shell"><code>zombiescan scan --project glitnir-dev
+Scanning as application default credentials
+1 project(s), 20 check(s) — read-only
+ 
+zombiescan — 2 findings across 1 project
+ 
+Check                      Found  Monthly
+stale-artifact-repository      1    $0.01
+empty-vpc-network              1    $0.00</code></pre>
+<p>Every call is a list or a get. The scan has no code path that
+deletes, modifies or releases anything.</p>
+<hr />
+<h4 id="step-7--scan-every-project">Step 7 — Scan Every Project</h4>
+<pre class="shell"><code>zombiescan scan --all-projects
+Scanning as application default credentials
+75 project(s), 20 check(s) — read-only
+ 
+zombiescan — 713 findings across 75 projects
+ 
+Check                      Found  Monthly
+unattached-disk               36  $153.53
+unused-static-ip              12   $89.06
+unused-image                  64   $75.25
+stopped-instance              12   $35.76
+orphaned-snapshot             39   $28.66
+stale-artifact-repository     13    $4.75
+stale-secret                   9    $0.54
+unused-dns-zone                1    $0.20
+empty-vpc-network             13    $0.00
+unmanaged-gcs-bucket         118    $0.00
+unused-firewall-rule          43    $0.00
+unused-subnet                349    $0.00
+unused-uptime-check            4    $0.00
+Estimated waste: $387.74/month ($4,652.87/year)</code></pre>
+<p><code>--all-projects</code> asks Resource Manager's
+<code>projects.search</code> which projects the caller can see, then
+fans out over them. 75 projects times 20 checks is 1,500 project/check
+pairs, and 411 of them were skipped because the API was not enabled on
+that project. The sweep took 79 seconds.</p>
+<p>Thirteen of the 20 checks fired. Five of those thirteen classes carry
+no charge and account for 527 of the 713 findings: empty VPC networks,
+versioned buckets with no lifecycle rule, firewall rules matching
+nothing, unused subnets and uptime checks monitoring deleted resources.
+They are reported because they accumulate without limit and block
+deletions.</p>
+<hr />
+<h4 id="step-8--read-the-per-resource-table">Step 8 — Read the
+Per-Resource Table</h4>
+<p>The detail table sorts the costliest findings first and guarantees a
+row to every check that fired.</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-zombiescan-gcp-diagram-1.png"
+alt="diagram" /></p>
+<p>Project is the first column because a resource id is unique inside a
+project and nowhere else. Location holds a zone, a region or
+<code>global</code>, read off each resource.</p>
+<p>A <code>~</code> marks an estimate or an upper bound, and the
+per-finding <code>note</code> in JSON output names the reason.</p>
+<p>🔎 Tip: <code>--min-cost 5</code> hides findings under five dollars a
+month, <code>--limit 0</code> prints every row instead of the top 25,
+and <code>--location us-central1</code> keeps a region's zones along
+with the region itself.</p>
+<hr />
+<h4 id="step-9--where-a-check-runs">Step 9 — Where a Check Runs</h4>
+<p>A check runs once per project. Two properties of Google's APIs make
+that a complete sweep.</p>
+<p>Compute Engine's <code>aggregatedList</code> returns disks,
+addresses, instances, routers, subnetworks and forwarding rules across
+every zone and region in one call. Most other APIs accept
+<code>locations/-</code>, a wildcard meaning every location.</p>
+<p>Cloud KMS and Artifact Registry reject <code>locations/-</code>.
+Those two enumerate the API's locations and walk them in parallel, and
+each worker gets its own client, because the HTTP connection underneath
+a discovery client cannot be shared between threads.</p>
+<hr />
+<h4 id="step-10--where-the-prices-come-from">Step 10 — Where the Prices
+Come From</h4>
+<p>The bundled price table is generated from the Cloud Billing Catalog
+API.</p>
+<pre class="shell"><code>python -m zombiescan.pricing.refresh</code></pre>
+<p>A scan reads <code>table.json</code> from the installed package, so
+it runs offline and adds no latency. Rates are looked up by key and
+region: <code>ctx.pricing.rate("disk.gb_month", region=...)</code>.</p>
+<p>Verified rates in us-central1, from the bundled table:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-zombiescan-gcp-table-1.png"
+alt="Table: Rate, us-central1" /></p>
+<p>At 730 hours to the month, arithmetic over those hourly rates gives
+$7.30 a month for an idle static IP, $18.25 for a forwarding rule, and
+$73.00 for a GKE cluster with no nodes on it.</p>
+<hr />
+<h4 id="step-11--read-the-first-tier-that-charges">Step 11 — Read the
+First Tier That Charges</h4>
+<p>Google fronts many SKUs with a free allowance priced at zero: the
+first 30 GB of standard Persistent Disk, the first 0.5 GB of Artifact
+Registry, the first six secret versions. A fetcher that reads tier 0
+records the rate as free, which prices every finding in that section at
+nothing and reports a clean project.</p>
+<p><code>unit_price()</code> takes the first tier that charges. Reading
+a named tier deliberately — the way the Cloud DNS fetcher walks the zone
+tiers at $0.20 for the first 25 and $0.10 beyond them — is a separate
+call.</p>
+<p>A SKU published against the region <code>global</code> has no
+per-region entry at all. Cloud NAT addresses, Artifact Registry storage
+and log retention are all published that way, so they live in a global
+section with a <code>scope="global"</code> rate spec.</p>
+<p>The refresher refuses to write a table that loses or empties a
+section the previous one had, because an empty section means a matcher
+stopped matching.</p>
+<hr />
+<h4 id="step-12--json-output">Step 12 — JSON Output</h4>
+<pre class="shell"><code>zombiescan scan --project glitnir-dev --json findings.json
+{
+  &quot;schema_version&quot;: 3,
+  &quot;scan&quot;: {
+    &quot;generated&quot;: &quot;2026-09-21T19:55:55Z&quot;,
+    &quot;duration_seconds&quot;: 5.41,
+    &quot;principal&quot;: &quot;application default credentials&quot;,
+    &quot;projects&quot;: [&quot;glitnir-dev&quot;],
+    &quot;pairs_attempted&quot;: 20,
+    &quot;pairs_unavailable&quot;: 3,
+    &quot;complete&quot;: true
+  },
+  &quot;pricing&quot;: {
+    &quot;generated&quot;: &quot;2026-09-21T16:35:39Z&quot;,
+    &quot;basis&quot;: &quot;Google Cloud Billing Catalog API, on-demand USD list prices&quot;,
+    &quot;excludes&quot;: [&quot;committed use discounts&quot;, &quot;sustained use discounts&quot;, &quot;private pricing&quot;, &quot;credits&quot;]
+  },
+  &quot;totals&quot;: {
+    &quot;monthly_cost&quot;: 0.01,
+    &quot;annual_cost&quot;: 0.12,
+    &quot;finding_count&quot;: 2
+  }
+}</code></pre>
+<p>Each finding carries its own reason, cost, remediation command and a
+<code>details</code> block:</p>
+<pre class="json"><code>{
+  &quot;check&quot;: &quot;stale-artifact-repository&quot;,
+  &quot;resource_id&quot;: &quot;gcr.io&quot;,
+  &quot;project&quot;: &quot;glitnir-dev&quot;,
+  &quot;location&quot;: &quot;us&quot;,
+  &quot;reason&quot;: &quot;DOCKER repository holding 0.1 GB with nothing pushed to it in 282 days&quot;,
+  &quot;monthly_cost&quot;: 0.01,
+  &quot;approximate_cost&quot;: true,
+  &quot;remediation&quot;: &quot;gcloud artifacts repositories delete gcr.io --location=us --project=glitnir-dev --quiet&quot;,
+  &quot;details&quot;: {
+    &quot;stored_gb&quot;: 0.1,
+    &quot;idle_days&quot;: 282,
+    &quot;usd_per_gb_month&quot;: 0.1,
+    &quot;note&quot;: &quot;upper bound: Artifact Registry bills each unique layer once, and images sharing a base layer are counted once per image here&quot;
+  }
+}</code></pre>
+<p>The pricing block dates the table and lists what list prices exclude,
+so a report read six months later says which rates produced it.</p>
+<hr />
+<h4 id="step-13--the-html-report">Step 13 — The HTML Report</h4>
+<pre class="shell"><code>zombiescan scan --project glitnir-dev --html report.html</code></pre>
+<p>One self-contained file with the styles inline, which prints to PDF
+without fetching anything.</p>
+<hr />
+<h4 id="step-14--the-cleanup-plan">Step 14 — The Cleanup Plan</h4>
+<pre class="shell"><code>zombiescan scan --project glitnir-dev --script cleanup.sh
+#!/usr/bin/env bash
+# zombiescan cleanup plan — generated 2026-09-21T19:55:55Z
+#
+# READ EVERY LINE BEFORE RUNNING THIS.
+# zombiescan generated this file and did not run it. Deleting Google
+# Cloud resources is not reversible. Where a backup is possible the
+# command takes one first, but a backup is not a substitute for
+# knowing what you are deleting.
+#
+# 2 resource(s), about $0.01/month.
+ 
+set -euo pipefail
+ 
+# glitnir-dev us gcr.io — DOCKER repository holding 0.1 GB with nothing pushed to it in 282 days
+# saves about $0.01/month
+gcloud artifacts repositories delete gcr.io --location=us --project=glitnir-dev --quiet
+ 
+# glitnir-dev global default — VPC network runs no instances; it still holds none. This is the auto-created default network
+# saves about $0.00/month
+gcloud compute networks delete default --project=glitnir-dev --quiet</code></pre>
+<p>Every generated command carries <code>--project</code> and
+<code>--quiet</code>, and interpolated resource ids are shell-quoted.
+The test suite checks all three at the source, because a remediation
+command is printed for an operator to run.</p>
+<hr />
+<h4 id="step-15--cleaning-up">Step 15 — Cleaning Up</h4>
+<p><code>clean</code> is a separate command, and a dry run is what it
+does with no flags.</p>
+<pre class="shell"><code>zombiescan clean --project glitnir-dev
+Scanning as application default credentials — 1 project(s)
+ 
+dry run — 1 of 2 finding(s) can be cleaned, 1 cannot
+  skip empty-vpc-network default: a network cannot be deleted until everything
+inside it is gone -- subnets, routes, firewall rules, Cloud Routers, peerings
+and any Private Service Connect attachment -- and the order depends on what else
+references them. Clean the findings inside the network first; this one goes away
+with them
+ 
+stale-artifact-repository  gcr.io  glitnir-dev · us · $0.01/mo
+  DOCKER repository holding 0.1 GB with nothing pushed to it in 282 days
+    → IRREVERSIBLE delete Artifact Registry repository gcr.io and its images
+      artifactregistry.projects.locations.repositories.delete({&#39;name&#39;:
+&#39;projects/glitnir-dev/locations/us/repositories/gcr.io&#39;})
+ 
+Would free about $0.01/month across 1 resource(s); 1 include irreversible steps.
+Nothing was changed. Re-run with --apply to perform these.</code></pre>
+<p><code>--apply</code> gates one thing: whether a planned step is sent
+to Google Cloud. It never changes which steps get planned, so the
+preview above is what runs.</p>
+<p>Planning is read-only. A cleaner may read — fetching an instance's
+disks to clear <code>autoDelete</code>, reading a router's NAT list —
+and it yields the mutations as objects for the runner to send.</p>
+<p>Where the API allows a backup, the backup step is ordered before the
+destruction, and a failed step stops the rest of that finding. A failed
+snapshot can never be followed by the delete that assumed it.</p>
+<p><code>IRREVERSIBLE</code> marks a step with no recovery window. A
+released static IP is gone, so it carries the mark; a destroyed KMS key
+version is held for 24 hours, so it does not.</p>
+<p>A check with no cleaner reports the finding as unsupported with a
+reason, which is the <code>skip</code> line above. The test suite fails
+a check that has neither a cleaner nor a reason.</p>
+<p>🔎 Tip: <code>clean --from findings.json</code> acts on a report
+already reviewed, and refuses a report produced by different
+credentials.</p>
+<hr />
+<h4 id="step-16--the-read-only-role">Step 16 — The Read-Only Role</h4>
+<pre class="shell"><code>gcloud iam roles create zombiescanScanner --project=PROJECT_ID \
+  --file=policy/zombiescan-scanner-role.yaml --quiet</code></pre>
+<p>Sixteen permissions, every one a list or a get. The file is generated
+from the <code>apis=</code> each check declares, and the suite keeps it
+in step.</p>
+<p><code>clean</code> needs more than this, deliberately: the identity
+that reports waste should be unable to delete what it reports.</p>
+<hr />
+<h4 id="step-17--the-claude-code-plugin">Step 17 — The Claude Code
+Plugin</h4>
+<pre class="shell"><code>/plugin marketplace add xbill9/zombiescan-gcp</code></pre>
+<p>The plugin ships two slash commands, a skill and an MCP server over
+the same engine.</p>
+<pre class="plaintext"><code>  scan_project  Scan Google Cloud projects for unused resources and price them
+  estimate_savings  Total, count and break down the findings in a report
+  explain_finding  Explain why a check treats a resource as waste
+  list_checks  List the installed checks
+  plan_cleanup  Show exactly what `zombiescan clean` would do</code></pre>
+<p>Every tool is read-only. <code>plan_cleanup</code> builds the step
+objects and stops there; the function that sends them to Google Cloud is
+unreachable from the server, and a test asserts the module names no
+other <code>clean.*</code> attribute.</p>
+<p>The tools return computed figures — totals, counts, breakdowns,
+cheapest and costliest — and echo the filter they applied. A tool that
+returned rows for the model to add up would move the arithmetic to the
+place least able to do it.</p>
+<p>The protocol is JSON-RPC over stdio in the standard library, with no
+MCP SDK dependency for about a hundred lines of framing.</p>
+<hr />
+<h4 id="three-findings-that-differ-from-the-aws-instinct">Three Findings
+That Differ From the AWS Instinct</h4>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-zombiescan-gcp-table-2.png"
+alt="Table: Resource, Google Cloud behaviour" /></p>
+<hr />
+<h4 id="what-the-checks-leave-alone">What the Checks Leave Alone</h4>
+<p>A false positive here costs an outage, so each check states the
+condition it declines to act on.</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-zombiescan-gcp-table-3.png"
+alt="Table: Condition, Treatment" /></p>
+<p><code>empty-vpc-network</code> reports without a cleanup step. A
+network deletes only after its subnets, routes, firewall rules, Cloud
+Routers and peerings are gone, in an order that depends on what
+references them, so the finding says so where a command would otherwise
+appear.</p>
+<p>Four of the 75 projects returned
+<code>permission denied: no access</code> on every check, producing 42
+skipped project/check pairs. Those appear in the report as a list, and
+the monthly total covers the projects that were readable.</p>
+<hr />
+<h4 id="compare-and-contrast">Compare and Contrast</h4>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-gcp/main/articles/zombiescan-gcp/medium/img/devto-zombiescan-gcp-table-4.png"
+alt="Table: zombiescan, Recommender / Active Assist, Billing reports, Cross-project SaaS" /></p>
+<hr />
+<h4 id="so-which-one">So, Which One?</h4>
+<p>Billing reports answer what the projects spent. Recommender covers
+more ground and reaches areas outside these 20 checks, including the
+metric-driven judgements that need a lookback window.</p>
+<p><code>zombiescan</code> fits the case where the answer has to be
+per-resource, priced, and produced without granting anything access to
+the projects. A laptop, existing credentials, and about 80 seconds for
+75 projects.</p>
+<hr />
+<h4 id="cost">Cost</h4>
+<p>A scan costs nothing. List and get calls carry no charge, and the
+price table ships with the package, so a scan makes no Billing Catalog
+call.</p>
+<p>Regenerating the table calls the Cloud Billing Catalog API, which is
+also free.</p>
+<hr />
+<h4 id="tests">Tests</h4>
+<pre class="shell"><code>uv run pytest -q
+324 passed, 4 deselected in 0.37s</code></pre>
+<p>The suite runs offline against recorded API responses, with no
+credentials. The four deselected tests reach a real project and run
+under <code>ZOMBIESCAN_LIVE=1</code>.</p>
+<p>Recorded responses are keyed the way the discovery client returns
+them, and every aggregated one includes a scope holding only a
+<code>warning</code>, which is how Compute Engine reports an empty zone.
+A check that walks past that shape without skipping it fails here
+instead of in production.</p>
+<hr />
+<h4 id="teardown">Teardown</h4>
+<pre class="shell"><code>uv tool uninstall zombiescan-gcp</code></pre>
+<p>Nothing is left in any project. The tool creates no service account,
+no role, no bucket and no stored state. Revoke the local credentials
+with <code>gcloud auth application-default revoke</code>.</p>
+<hr />
+<h4 id="summary">Summary</h4>
+<p>The goal of this article was to audit every Google Cloud project a
+set of credentials can reach and attach a monthly cost to each unused
+resource. The key to the solution was fanning out per project instead of
+per region, and fetching every rate from the Cloud Billing Catalog API
+while keeping the scan read-only. The results were:</p>
+<ul>
+<li>🟢 20 checks in two packs across Compute Engine, Cloud SQL, Storage,
+DNS, KMS, Secret Manager, Artifact Registry, Filestore, Cloud Logging,
+Cloud Monitoring and GKE</li>
+<li>🟢 75 projects swept in 79 seconds, 713 findings, $387.74 a month
+and $4,652.87 a year</li>
+<li>🟢 One call per project: <code>aggregatedList</code> covers every
+zone and region, and <code>locations/-</code> covers every location for
+the APIs that accept it</li>
+<li>🟢 Prices dated in every report, with the first charging tier read
+instead of a free tier 0</li>
+<li>🟢 JSON against a published schema, a self-contained HTML report,
+and a shell cleanup plan that is printed and never run</li>
+<li>🟢 <code>clean</code> previews by default, orders a backup before
+the destruction it protects, and marks steps with no recovery
+window</li>
+<li>⚠️ 411 of 1,500 project/check pairs were skipped because the API was
+not enabled, and 42 more for lack of access to 4 projects, so $387.74
+covers the projects that were readable</li>
+<li>⚠️ Figures are on-demand list prices, excluding committed use
+discounts, sustained use discounts, private pricing and credits</li>
+<li>⚠️ Artifact Registry is an upper bound: it bills a shared layer
+once, and a finding counts it once per image</li>
+<li>❌ <code>empty-vpc-network</code> reports without a cleanup step,
+because a network needs its dependencies removed in an order that
+depends on what references them</li>
+<li>❌ Idle judgements that need a lookback window — Cloud SQL by
+connection count, KMS keys by audit log — need Cloud Monitoring and are
+outside these 20 checks</li>
+</ul>
+<p>Scope: one set of Application Default Credentials, 75 projects
+reachable through <code>projects.search</code>, 20 checks, a single
+sweep per figure quoted, run from one laptop. The read-only guarantee
+holds for the packs in this repository, which are reviewed; a pack
+installed from PyPI runs with the same credentials and carries no such
+guarantee.</p>
+<p>The strategy for using per-resource pricing for Google Cloud waste
+detection was validated with an incremental step by step approach.</p>
+<hr />
+<h4 id="references">References</h4>
+<ul>
+<li>Repository, MIT: <a
+href="https://github.com/xbill9/zombiescan-gcp">https://github.com/xbill9/zombiescan-gcp</a></li>
+<li>Findings JSON Schema: <a
+href="https://github.com/xbill9/zombiescan-gcp/blob/main/docs/findings.schema.json">https://github.com/xbill9/zombiescan-gcp/blob/main/docs/findings.schema.json</a></li>
+<li>Pack author guide: <a
+href="https://github.com/xbill9/zombiescan-gcp/blob/main/docs/PACKS.md">https://github.com/xbill9/zombiescan-gcp/blob/main/docs/PACKS.md</a></li>
+<li>Cloud Billing Catalog API, <code>services.skus.list</code>: <a
+href="https://cloud.google.com/billing/docs/reference/rest/v1/services.skus/list">https://cloud.google.com/billing/docs/reference/rest/v1/services.skus/list</a></li>
+<li>Compute Engine <code>aggregatedList</code>: <a
+href="https://cloud.google.com/compute/docs/reference/rest/v1/disks/aggregatedList">https://cloud.google.com/compute/docs/reference/rest/v1/disks/aggregatedList</a></li>
+<li>VPC pricing, external IP addresses: <a
+href="https://cloud.google.com/vpc/network-pricing">https://cloud.google.com/vpc/network-pricing</a></li>
+<li>GKE cluster management fee: <a
+href="https://cloud.google.com/kubernetes-engine/pricing">https://cloud.google.com/kubernetes-engine/pricing</a></li>
+<li>Application Default Credentials: <a
+href="https://cloud.google.com/docs/authentication/application-default-credentials">https://cloud.google.com/docs/authentication/application-default-credentials</a></li>
+</ul>
+</body>
+</html>
