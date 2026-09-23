@@ -181,3 +181,27 @@ def test_errors_are_shown_not_swallowed(result):
 def test_print_stylesheet_exists():
     """Printing to PDF from a browser is how a PDF gets made; no rendering engine needed."""
     assert "@media print" in to_html(ScanResult(subscriptions=[SUB]))
+
+
+def test_a_clean_scan_says_no_waste_and_what_ran():
+    """Zero findings is a result, and the page says how much of the scan it covers."""
+    clean = ScanResult(subscriptions=[SUB], attempted=30, unavailable=4)
+    page = to_html(clean)
+    assert "No waste found" in page
+    assert "across 26 subscription/check pair(s)" in page
+    assert "cleanup debt" not in page
+
+
+def test_skipped_pairs_are_counted_and_explained():
+    page = to_html(ScanResult(subscriptions=[SUB], attempted=30, unavailable=4))
+    assert "<b>26</b> subscription/check pairs ran" in page
+    assert "<b>4</b> skipped, provider not registered" in page
+    assert "4 subscription/check pair(s) were skipped" in page
+
+
+def test_no_waste_with_errors_is_not_an_all_clear():
+    partial = ScanResult(subscriptions=[SUB], attempted=3)
+    partial.errors = [ScanError(SUB, "unattached-disk", "AuthorizationFailed")]
+    page = to_html(partial)
+    assert "No waste found" in page
+    assert "in the pairs that could be scanned" in page

@@ -166,13 +166,37 @@ def to_html(
             "all-clear.</p>"
         )
 
-    headline = (
-        f'<p class="headline">{_money(total)}<span class="per"> / month</span></p>'
-        f'<p class="annual">{_money(total * 12)} / year</p>'
-        if total >= 0.01
-        else '<p class="headline">Under $0.01<span class="per"> / month</span></p>'
-        '<p class="annual">These cost almost nothing today. They are cleanup debt, '
-        "not a bill.</p>"
+    ran = result.attempted - result.unavailable - len(result.errors)
+    if not result.findings and not result.completely_failed:
+        # An empty page must not read as more than it is: say what ran, and
+        # say so again when part of the scan failed.
+        scope = (
+            "in the pairs that could be scanned; the failures are listed below"
+            if result.errors
+            else f"across {ran} subscription/check pair(s)"
+        )
+        headline = (
+            '<p class="headline">No waste found</p>'
+            f'<p class="annual">No unused resource turned up {scope}.</p>'
+        )
+    elif total >= 0.01:
+        headline = (
+            f'<p class="headline">{_money(total)}<span class="per"> / month</span></p>'
+            f'<p class="annual">{_money(total * 12)} / year</p>'
+        )
+    else:
+        headline = (
+            '<p class="headline">Under $0.01<span class="per"> / month</span></p>'
+            '<p class="annual">These cost almost nothing today. They are cleanup debt, '
+            "not a bill.</p>"
+        )
+
+    skipped = (
+        f'<p class="note">{result.unavailable} subscription/check pair(s) were skipped: '
+        "their resource provider is not registered, so there is nothing of that kind "
+        "there. <code>zombiescan providers</code> lists what each check reads.</p>"
+        if result.unavailable
+        else ""
     )
 
     return f"""<!DOCTYPE html>
@@ -188,11 +212,13 @@ def to_html(
 {headline}
 <div class="meta">
   <span><b>{len(result.findings)}</b> findings</span>
-  <span><b>{result.attempted}</b> subscription/check pairs scanned</span>
+  <span><b>{ran}</b> subscription/check pairs ran</span>
+  <span><b>{result.unavailable}</b> skipped, provider not registered</span>
   <span><b>{len(result.errors)}</b> errors</span>
   <span>prices generated <b>{_cell(pricing_generated or "unknown")}</b></span>
   <span>zombiescan <b>{_cell(__version__)}</b></span>
 </div>
+{skipped}
 
 <h2>By check</h2>
 <table><thead><tr><th>Check</th><th class="num">Found</th>
