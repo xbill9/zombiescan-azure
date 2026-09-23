@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>What Nobody Is Using in Your Azure Subscriptions, and What It Costs</title>
+  <meta name="description" content="A local-first CLI that scans Azure subscriptions for unused resources, prices each one from the Azure Retail Prices API, and drafts the cleanup. One call per subscription across every tenant you are signed into, read-only by default, and a Claude Code plugin over the same engine." />
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <style>
+    body{font-family:-apple-system,'Segoe UI',Roboto,'Liberation Sans',Arial,sans-serif;
+         font-size:18px;line-height:1.58;max-width:42em;color:#242424;}
+    h1,h2,h3,h4{font-weight:700;line-height:1.25;margin-top:1.8em;}
+    h4{font-size:1.25em;}
+    img{max-width:100%;height:auto;display:block;margin:1.6em 0;}
+    pre{background:#f7f7f7;border:1px solid #e6e6e6;border-radius:4px;
+        padding:12px 14px;overflow-x:auto;font-size:14px;line-height:1.45;}
+    code{font-family:'Liberation Mono',Menlo,Consolas,monospace;}
+    :not(pre)>code{background:#f2f2f2;padding:1px 5px;border-radius:3px;font-size:.9em;}
+    blockquote{border-left:3px solid #ddd;margin-left:0;padding-left:1em;color:#555;}
+    hr{border:0;border-top:1px solid #e6e6e6;margin:2.4em 0;}
+  </style>
+</head>
+<body>
+<p>This article provides a step by step guide to building an Azure waste
+scanner from source, running it across every subscription your
+<code>az login</code> can see, pricing each finding from the Azure
+Retail Prices API, and drafting the cleanup. A suite of Python checks is
+built to cover Compute, Networking, Storage, SQL, Key Vault, Container
+Registry, App Service, Container Apps, AI Services, Machine Learning,
+Log Analytics and AKS.</p>
+<figure><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-cover.298b6dcc.jpg" alt="What Nobody Is Using in Your Azure Subscriptions, and What It Costs" /></figure>
+<p><a
+href="https://github.com/xbill9/zombiescan-azure">https://github.com/xbill9/zombiescan-azure</a></p>
+<hr />
+<h4 id="the-third-cloud">The Third Cloud</h4>
+<p>This is the third scanner in a series. The first covered an AWS
+account and the second covered Google Cloud projects:</p>
+<ul>
+<li>AWS: <a
+href="https://dev.to/aws-builders/find-the-aws-resources-nobody-is-using-and-what-they-cost-you-35bj">https://dev.to/aws-builders/find-the-aws-resources-nobody-is-using-and-what-they-cost-you-35bj</a></li>
+<li>Google Cloud: <a
+href="https://dev.to/gde/what-nobody-is-using-in-your-google-cloud-projects-and-what-it-costs-1k0">https://dev.to/gde/what-nobody-is-using-in-your-google-cloud-projects-and-what-it-costs-1k0</a></li>
+</ul>
+<p>The shape carries over: a CLI, a bundled price table, a cleanup plan
+that is printed and never run, and a Claude Code plugin with an MCP
+server over the same engine. What changes is everything underneath — how
+Azure authenticates, how it answers a list call, how it prices a disk,
+and which resources keep billing once nobody uses them.</p>
+<hr />
+<h4 id="what-gets-left-behind">What Gets Left Behind</h4>
+<p>A managed disk survives the VM it was attached to. A public IP
+outlives the load balancer that held it. A NAT gateway keeps its hourly
+fee after the last subnet moved away, and a provisioned model deployment
+bills every PTU every hour whether a request arrives or not. Each one
+reports nothing.</p>
+<p>Cost Management shows the total. Azure Advisor surfaces candidates. A
+figure that drives a decision names one resource, in one subscription
+and resource group, and its monthly cost.</p>
+<p><code>zombiescan</code> produces that figure for 30 classes of
+resource across two packs.</p>
+<hr />
+<h4 id="at-this-point-you-should-have">At This Point You Should
+Have…</h4>
+<ul>
+<li>An Azure account and the Azure CLI, signed in with
+<code>az login</code></li>
+<li><code>uv</code> on the path, and Python 3.11 or newer</li>
+<li>Read access to the subscriptions you mean to scan — the built-in
+Reader role covers every call, and
+<code>zombiescan-scanner-role.json</code>, under <code>policy/</code> in
+the repository, is a custom role holding exactly the read actions the
+checks use</li>
+</ul>
+<hr />
+<h4 id="step-1--build-it-from-source">Step 1 — Build It From Source</h4>
+<pre class="shell"><code>git clone https://github.com/xbill9/zombiescan-azure
+cd zombiescan-azure
+uv sync
+Resolved 18 packages in 0.48ms
+Checked 17 packages in 0.13ms</code></pre>
+<p><code>uv sync</code> reads the committed <code>uv.lock</code>, so the
+resolved set is the one the tests ran against. The dependency list is
+<code>click</code> and <code>rich</code>; every Azure call goes over
+HTTPS with <code>urllib</code> from the standard library.</p>
+<pre class="shell"><code>uv run zombiescan --version
+zombiescan, version 0.1.0</code></pre>
+<hr />
+<h4 id="step-2--install-it-as-a-tool">Step 2 — Install It as a Tool</h4>
+<p>Working from the clone keeps <code>uv run</code> in front of every
+command. Installing it puts <code>zombiescan</code> on the path
+instead.</p>
+<pre class="shell"><code>uv tool install git+https://github.com/xbill9/zombiescan-azure</code></pre>
+<p>Both routes run the same engine. The rest of this article uses the
+installed form.</p>
+<hr />
+<h4 id="step-3--authenticate-and-see-which-account-you-are">Step 3 —
+Authenticate, and See Which Account You Are</h4>
+<pre class="shell"><code>az login</code></pre>
+<p><code>zombiescan</code> shells out to
+<code>az account get-access-token</code> and reuses the result. No key
+file is downloaded, no client secret is stored, and there is no
+<code>azure-identity</code> dependency.</p>
+<p>An ARM token is issued for exactly one tenant. Microsoft lets one
+email address be both a work or school account and a personal Microsoft
+account, and those are two directories with two sets of subscriptions.
+So the scanner reads the subscription list from
+<code>az account list --all</code>, which spans every identity the CLI
+has signed into, and holds one token per tenant.</p>
+<p>Every scan opens by naming each tenant, the kind of account signed
+into it, and each subscription:</p>
+<pre class="plaintext"><code>Scanning as xbill@glitnir.com
+Tenant Default Directory — personal Microsoft account
+  domain        xbillglitnircom.onmicrosoft.com
+  tenant id     40482c55-d00d-4c6d-8903-643d76a74b9c
+  signed in as  xbill@glitnir.com
+  subscription  Azure subscription 1 (default)
+                3db3ce66-50b6-4d11-91ef-5950cf4039ed</code></pre>
+<p><code>az account list</code> reports a personal account and a work
+account as the same user with the same email. The access token tells
+them apart: a personal Microsoft account signs in through
+<code>live.com</code> and its token carries <code>idp: live.com</code>,
+a work or school account in its own directory carries no
+<code>idp</code> at all, and a guest from another directory names its
+home issuer there.</p>
+<p>🔎 Tip: every token is fetched on the main thread before any worker
+starts. Concurrent <code>az account get-access-token</code> processes
+contend on the MSAL token cache in <code>~/.azure</code>, and a
+corrupted cache costs an <code>az login</code>.</p>
+<hr />
+<h4 id="step-4--list-the-checks">Step 4 — List the Checks</h4>
+<pre class="shell"><code>zombiescan checks
+  aks-idle-cluster  AKS clusters running no nodes  (aks)
+  deallocated-vm  Stopped VMs still paying for disks  (core)
+  disabled-key-vault-key  Disabled Key Vault keys still billed  (core)
+  empty-ai-services-account  AI Services accounts with no model deployed  (core)
+  empty-container-apps-environment  Container Apps environments with no app  (core)
+  empty-container-registry  Container registries holding no images  (core)
+  empty-resource-group  Resource groups holding nothing  (core)
+  empty-vnet  Virtual networks with nothing running in them  (core)
+  idle-app-service-plan  App Service plans hosting no apps  (core)
+  idle-container-app  Always-on container apps serving nothing  (core)
+  idle-dedicated-host  Dedicated hosts running no VMs  (core)
+  idle-load-balancer  Load balancers with no backends  (core)
+  idle-ml-compute  ML compute running or held idle  (core)
+  idle-nat-gateway  NAT gateways with no subnets  (core)
+  idle-provisioned-deployment  Provisioned model deployments serving nothing  (core)
+  idle-workload-profile  Dedicated workload profiles running no app  (core)
+  orphaned-nic  Network interfaces with no VM  (core)
+  orphaned-snapshot  Snapshots of deleted disks  (core)
+  paused-sql-database  Paused SQL databases still paying for storage  (core)
+  stale-key-vault-secret  Secrets with no new version in 90 days  (core)
+  unattached-disk  Unattached managed disks  (core)
+  unbounded-log-workspace  Log workspaces with no ingestion cap  (core)
+  unmanaged-storage-account  Versioned storage accounts with no lifecycle policy  (core)
+  unused-availability-test  Availability tests watching a deleted resource  (core)
+  unused-capacity-reservation  Capacity reservations holding unused slots  (core)
+  unused-dns-zone  DNS zones with no records  (core)
+  unused-image  Managed images nothing boots from  (core)
+  unused-nsg  Security groups protecting nothing  (core)
+  unused-public-ip  Public IP addresses attached to nothing  (core)
+  unused-subnet  Subnets reserving a range against nothing  (core)</code></pre>
+<p>Twenty-nine ship in the <code>core</code> pack and one in
+<code>aks</code>. AKS sits in its own pack because it carries its own
+resource provider, its own rate section and its own price fetcher, which
+is what a third-party pack has to supply.</p>
+<hr />
+<h4 id="step-5--which-resource-providers-the-checks-read">Step 5 — Which
+Resource Providers the Checks Read</h4>
+<pre class="shell"><code>zombiescan providers
+  Microsoft.App  3 check(s)
+  Microsoft.CognitiveServices  2 check(s)
+  Microsoft.Compute  6 check(s)
+  Microsoft.ContainerRegistry  1 check(s)
+  Microsoft.ContainerService  1 check(s)
+  Microsoft.Insights  3 check(s)
+  Microsoft.KeyVault  2 check(s)
+  Microsoft.MachineLearningServices  1 check(s)
+  Microsoft.Network  9 check(s)
+  Microsoft.OperationalInsights  1 check(s)
+  Microsoft.Resources  1 check(s)
+  Microsoft.Sql  1 check(s)
+  Microsoft.Storage  1 check(s)
+  Microsoft.Web  1 check(s)</code></pre>
+<p>This list decides more on Azure than on the other two clouds.
+<strong>ARM answers a list call against an unregistered resource
+provider with HTTP 200 and an empty page.</strong> A subscription that
+has never used App Service returns <code>{"value": []}</code> from
+<code>/providers/Microsoft.Web/serverfarms</code>, with no error. A
+check that simply ran would find nothing and report a clean
+subscription.</p>
+<p>So every check declares the providers it reads, the engine reads each
+subscription's registrations once, and a check whose provider is missing
+is counted as skipped. The same declaration generates the read-only
+custom role, and the test suite fails when a check names a provider the
+role does not cover.</p>
+<hr />
+<h4 id="step-6--scan-one-subscription">Step 6 — Scan One
+Subscription</h4>
+<pre class="shell"><code>zombiescan scan
+1 subscription(s), 30 check(s) — read-only
+ 
+No waste found across 1 subscription. Nothing to clean up.
+ 
+4 of 30 subscription/check pair(s) were skipped: their resource provider is not registered, so there
+is nothing of that kind here. &#39;zombiescan providers&#39; lists what each check reads.</code></pre>
+<p>With no flag it scans the subscription <code>az</code> is set to. The
+four skipped pairs are Key Vault's two checks, App Service and SQL: this
+subscription has never registered those providers, so it has no
+resources of those kinds.</p>
+<p>Every call is a list, a get or a Resource Graph query. The scan has
+no code path that deletes, modifies or releases anything.</p>
+<hr />
+<h4 id="step-7--scan-every-subscription-in-every-tenant">Step 7 — Scan
+Every Subscription, in Every Tenant</h4>
+<pre class="shell"><code>zombiescan scan --all-subscriptions</code></pre>
+<p><code>--all-subscriptions</code> takes every enabled subscription in
+<code>az account list --all</code>, across every tenant the CLI has
+signed into, and runs <code>az account list --refresh</code> first to
+pick up subscriptions created since the last login. On this account that
+is one subscription in one tenant, and the sweep of 30 checks took 8.65
+seconds.</p>
+<p>A second identity is one <code>az login</code> away. After it, the
+same command reaches both directories, requests for each subscription
+carry that tenant's token, and the header lists both tenants with their
+account kinds.</p>
+<hr />
+<h4 id="step-8--what-a-finding-looks-like">Step 8 — What a Finding Looks
+Like</h4>
+<p>This subscription is clean, so the rows below come from the test
+suite's recorded ARM responses — the same JSON each check is tested
+against — priced from the real bundled price table.</p>
+<pre class="shell"><code>uv run python articles/zombiescan-azure/show-fixture-findings.py
+49 findings from 30 checks, recorded responses, prices generated 2026-09-23T17:19:30Z
+total $32,345.26/month
+ 
+Check                              Resource                           Monthly
+idle-provisioned-deployment        acct-ptu/ptu-idle              $21,900.00
+idle-ml-compute                    ws-research/gpu-warm            $4,467.60
+idle-dedicated-host                host-idle                       $3,084.25
+idle-workload-profile              env-single/d4-solo                $522.62
+idle-app-service-plan              prod-plan                         $459.90
+unused-capacity-reservation        cr-partial                        $420.48
+empty-container-apps-environment   env-empty-dedicated               $297.81
+idle-workload-profile              env-mixed/d4-idle                 $224.81
+idle-ml-compute                    ws-research/ci-forever            $213.89
+unused-capacity-reservation        cr-idle                           $140.16
+aks-idle-cluster                   scaled-to-zero                     $73.00
+idle-nat-gateway                   egress-gw-old                      $32.85
+deallocated-vm                     batch-runner                       $24.90
+idle-load-balancer                 api-lb                             $21.90
+unattached-disk                    orphan-data                        $19.71
+idle-container-app                 app-idle                           $11.83
+orphaned-nic                       web-01-nic-old                      $3.65
+unattached-disk                    tiny-scratch                        $0.60</code></pre>
+<p>The top of that list is where Azure's waste concentrates now: a
+15-PTU regional model deployment serving nothing is $21,900 a month, a
+GPU cluster whose minimum keeps two idle nodes up is $4,467.60, and an
+empty <code>DSv3-Type3</code> dedicated host is $3,084.25. A forgotten
+disk is $19.71.</p>
+<p>Every finding carries its subscription, resource group, location and
+full ARM id. No <code>az</code> command works without the resource
+group, and the ARM id is the only identifier unique across a tenant.</p>
+<hr />
+<h4 id="step-9--where-a-check-runs">Step 9 — Where a Check Runs</h4>
+<p>A check runs once per subscription. Two properties of ARM make that a
+complete sweep.</p>
+<p>A list call at
+<code>/subscriptions/&lt;id&gt;/providers/Microsoft.Compute/disks</code>
+returns every disk in every resource group and every region, in one
+call. And Azure Resource Graph answers a cross-type join in one KQL
+query, so the check for stopped VMs reads power state for every VM at
+once without an instance-view call per machine.</p>
+<p>So <code>@check</code> has no region scope. Each finding reads its
+own <code>location</code> off the resource, and <code>--location</code>
+filters findings afterwards.</p>
+<p>🔎 Tip: follow <code>nextLink</code> even when the first page is
+empty. Listing AI Services accounts across a subscription returned an
+empty first page with a <code>nextLink</code>, and the account on the
+second page. A reader that stopped at page one would report the
+subscription clean.</p>
+<hr />
+<h4 id="step-10--pinned-api-versions">Step 10 — Pinned API Versions</h4>
+<p>Azure has no "latest". Every request carries a required
+<code>api-version</code>, and <code>azure.API_VERSIONS</code> pins one
+per resource type, resolved by longest prefix so a sub-type inherits its
+parent's version.</p>
+<p>A retired version produces <code>InvalidResourceType</code>, which is
+404-shaped, and a 404 reads as "nothing here". The check would stop
+reporting and the subscription would look that much cleaner. The live
+test, gated behind <code>ZOMBIESCAN_LIVE=1</code>, sends every pin to
+ARM and fails on the first one ARM rejects.</p>
+<hr />
+<h4 id="step-11--where-the-prices-come-from">Step 11 — Where the Prices
+Come From</h4>
+<p>The bundled price table is generated from the Azure Retail Prices
+API, which is public: no credentials and no subscription.</p>
+<pre class="shell"><code>python -m zombiescan.pricing.refresh</code></pre>
+<p>A scan reads <code>table.json</code> from the installed package, so
+it runs offline and adds no latency. Rates are looked up by key and
+region:
+<code>ctx.pricing.rate("disk.tier_month", region=..., variant="P10 LRS")</code>.</p>
+<p>Verified rates in eastus, from the bundled table:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-1.png"
+alt="Table: Rate, eastus" /></p>
+<p>At 730 hours to the month, arithmetic over those hourly rates gives
+$3.65 for an idle public IP, $32.85 for a NAT gateway, $18.25 for load
+balancer rules, $73.00 for an AKS Standard control plane and $3,084.25
+for an empty dedicated host.</p>
+<hr />
+<h4 id="step-12--four-ways-a-price-goes-wrong">Step 12 — Four Ways a
+Price Goes Wrong</h4>
+<p>Each of these produces a plausible table with the wrong numbers in
+it.</p>
+<p><strong>Filter on <code>priceType eq 'Consumption'</code>.</strong>
+The same meter is published as <code>Reservation</code> and
+<code>DevTestConsumption</code> too, at a fraction of the price.</p>
+<p><strong>Take the first tier that charges.</strong> Azure returns a
+tiered meter's rows in no guaranteed order, and tier 0 is often a free
+allowance. <code>unit_price()</code> sorts by
+<code>tierMinimumUnits</code> and reads the first nonzero row.</p>
+<p><strong>Match the meter name as well as the SKU.</strong>
+<code>P80 LRS Disk</code>, <code>P80 LRS Disk Mount</code> and
+<code>P80 LRS Disk Operations</code> all share the SKU "P80 LRS"; only
+the first is the capacity charge. The same care covers Windows rows:
+most VM products spell it "Windows", and a few GPU series abbreviate it
+to "Win".</p>
+<p><strong>Some meters have no ARM region.</strong> NAT Gateway and Load
+Balancer are published against "Global", and Azure DNS against a billing
+geography spelled "Zone 1". Those live in a global section.</p>
+<p>The refresher refuses to write a table that loses or empties a
+section the previous one had, because an empty section means a matcher
+stopped matching.</p>
+<hr />
+<h4 id="step-13--managed-disks-are-priced-by-tier">Step 13 — Managed
+Disks Are Priced by Tier</h4>
+<p>A managed disk bills at the tier its provisioned size falls into,
+flat per month:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-2.png"
+alt="Table: Disk, Tier, eastus per month" /></p>
+<p>A 65 GiB Premium disk and a 128 GiB one cost the same. Standard HDD
+has no rung below S4, so a 4 GiB Standard disk bills as a 32 GiB one.
+The price table is keyed by tier and redundancy — "P10 LRS", "P10 ZRS" —
+because zone redundancy costs about half as much again: $29.57 for a P10
+ZRS.</p>
+<p>Premium SSD v2 and Ultra bill per provisioned GiB, and both bill
+provisioned IOPS and throughput on top, which the finding says.</p>
+<hr />
+<h4 id="step-14--idle-needs-a-week-of-metrics">Step 14 — Idle Needs a
+Week of Metrics</h4>
+<p>Most checks answer from one list call. Two need usage:</p>
+<ul>
+<li><code>idle-provisioned-deployment</code> reads
+<code>ModelRequests</code> on each account over seven days, split by
+<code>ModelDeploymentName</code>, so one call covers every deployment on
+the account</li>
+<li><code>idle-container-app</code> reads <code>Requests</code> on each
+app with <code>minReplicas</code> of one or more</li>
+</ul>
+<p>Both go through <code>helpers.metric_totals</code>, which asks Azure
+Monitor for the <code>Total</code> over <code>P7D</code> and returns the
+sum. A deployment that served nothing has no series at all, and a
+missing series reads as zero. Both checks declare
+<code>Microsoft.Insights</code>, the provider behind the metrics
+endpoint, so the registration check covers it too.</p>
+<p>On this subscription the container app recorded 0 requests in the
+seven days, and the gpt-5-mini deployment returned no series. Both stay
+out of the report: the app has <code>minReplicas: 0</code> and the
+deployment is pay-per-token, so each costs nothing idle.</p>
+<hr />
+<h4 id="step-15--json-output">Step 15 — JSON Output</h4>
+<pre class="shell"><code>zombiescan scan --all-subscriptions --json findings.json
+{
+  &quot;schema_version&quot;: 4,
+  &quot;scan&quot;: {
+    &quot;generated&quot;: &quot;2026-09-23T17:47:01Z&quot;,
+    &quot;duration_seconds&quot;: 8.65,
+    &quot;principal&quot;: &quot;xbill@glitnir.com&quot;,
+    &quot;subscriptions&quot;: [&quot;3db3ce66-50b6-4d11-91ef-5950cf4039ed&quot;],
+    &quot;pairs_attempted&quot;: 30,
+    &quot;pairs_unavailable&quot;: 4,
+    &quot;complete&quot;: true
+  },
+  &quot;pricing&quot;: {
+    &quot;generated&quot;: &quot;2026-09-23T17:19:30Z&quot;,
+    &quot;basis&quot;: &quot;Azure Retail Prices API, pay-as-you-go USD list prices&quot;,
+    &quot;excludes&quot;: [&quot;reservations&quot;, &quot;savings plans&quot;, &quot;Azure Hybrid Benefit&quot;, &quot;dev/test rates&quot;, &quot;enterprise agreement pricing&quot;, &quot;credits&quot;]
+  },
+  &quot;totals&quot;: {
+    &quot;monthly_cost&quot;: 0,
+    &quot;annual_cost&quot;: 0,
+    &quot;finding_count&quot;: 0,
+    &quot;by_check&quot;: {}
+  }
+}</code></pre>
+<p>The pricing block dates the table and lists what list prices exclude,
+so a report read six months later says which rates produced it.
+<code>pairs_unavailable</code> carries the skipped count, and
+<code>complete</code> is false when every pair failed or was skipped, so
+a CI job reading the file can tell an all-clear from a scan that reached
+nothing.</p>
+<hr />
+<h4 id="step-16--the-html-report">Step 16 — The HTML Report</h4>
+<pre class="shell"><code>zombiescan scan --all-subscriptions --html report.html</code></pre>
+<p>One self-contained file with the styles inline, which prints to PDF
+without fetching anything. With no findings its headline reads "No waste
+found" and names how many subscription/check pairs ran, how many were
+skipped for an unregistered provider, and how many failed.</p>
+<hr />
+<h4 id="step-17--the-cleanup-plan">Step 17 — The Cleanup Plan</h4>
+<pre class="shell"><code>zombiescan scan --all-subscriptions --script cleanup.sh
+#!/usr/bin/env bash
+# zombiescan cleanup plan — generated 2026-09-23T17:47:01Z
+#
+# READ EVERY LINE BEFORE RUNNING THIS.
+# zombiescan generated this file and did not run it. Some of these
+# deletions can be undone and some cannot: Key Vault and SQL keep a
+# recovery window, a released public IP address is gone for good.</code></pre>
+<p>Every generated command is built by one helper, which adds
+<code>--resource-group</code> and <code>--subscription</code> and wraps
+interpolated names in shell quoting. The test suite checks both at the
+source.</p>
+<p>🔎 Tip: <code>--yes</code> exists only on the <code>az</code>
+commands that would otherwise prompt, and passing it to one that does
+not is an error. <code>az disk delete</code> takes it;
+<code>az snapshot delete</code> and <code>az network nic delete</code>
+reject it. The helper holds the list of commands that take it, and the
+live test re-checks that list against the installed CLI.</p>
+<hr />
+<h4 id="step-18--cleaning-up">Step 18 — Cleaning Up</h4>
+<p><code>clean</code> is a separate command, and a dry run is what it
+does with no flags.</p>
+<pre class="shell"><code>zombiescan clean --all-subscriptions
+Nothing to clean.</code></pre>
+<p><code>--apply</code> gates one thing: whether a planned step is sent
+to Azure. It never changes which steps get planned, so the preview is
+what runs.</p>
+<p>Planning is read-only. A cleaner may read — re-listing a resource
+group to confirm it is still empty, re-reading a model deployment's
+request count, re-reading a capacity reservation's allocation — and it
+yields the mutations as objects for the runner to send. A plan refuses
+when the resource has changed since the scan: a host with a VM placed on
+it, an account that gained a deployment, a reservation that filled
+up.</p>
+<p>Where the API allows a backup, it comes first. The disk cleaner takes
+an incremental snapshot before the delete, and a failed step stops the
+rest of that finding.</p>
+<p><code>IRREVERSIBLE</code> marks a step with no recovery window at
+all. A released public IP is gone, and so is a deleted Container Apps
+environment's static IP, so both carry the mark. A Key Vault key is held
+by mandatory soft-delete, a SQL database restores from point-in-time
+backups, and a deleted AI Services account is recoverable for 48 hours,
+so none of those does.</p>
+<p>A check with no cleaner reports its findings as unsupported with a
+reason. <code>idle-container-app</code> is one: lowering
+<code>minReplicas</code> trades the idle charge for a cold start on the
+next request, and that trade belongs to whoever owns the app.</p>
+<hr />
+<h4 id="step-19--the-read-only-role">Step 19 — The Read-Only Role</h4>
+<pre class="shell"><code>az role definition create --role-definition policy/zombiescan-scanner-role.json</code></pre>
+<p>Forty-four actions: forty-three reads and Container Registry's
+<code>listUsages</code>, the one management-plane call that reports how
+much a registry stores. The file is generated from the
+<code>providers=</code> each check declares, and the suite keeps it in
+step.</p>
+<p><code>clean</code> needs more than this, deliberately: the identity
+that reports waste should be unable to delete what it reports.</p>
+<hr />
+<h4 id="step-20--the-claude-code-plugin">Step 20 — The Claude Code
+Plugin</h4>
+<pre class="shell"><code>/plugin marketplace add xbill9/zombiescan-azure</code></pre>
+<p>The plugin ships two slash commands, a skill and an MCP server over
+the same engine.</p>
+<pre class="plaintext"><code>  scan_subscription  Scan Azure subscriptions for unused resources and price them
+  estimate_savings  Total, count and break down the findings in a report
+  explain_finding  Explain why a check treats a resource as waste
+  list_checks  List the installed checks
+  plan_cleanup  Show exactly what `zombiescan clean` would do</code></pre>
+<p>Every tool is read-only. <code>plan_cleanup</code> builds the step
+objects and stops there; the function that sends them to Azure is
+unreachable from the server, and a test asserts the module names no
+other <code>clean.*</code> attribute.</p>
+<p>The tools return computed figures — totals, counts, breakdowns,
+cheapest and costliest — and echo the filter they applied. A tool that
+returned rows for the model to add up would move the arithmetic to the
+place least able to do it.</p>
+<hr />
+<h4 id="step-21--what-a-scan-cannot-see">Step 21 — What a Scan Cannot
+See</h4>
+<p>A clean scan answers one question: is anything billing that nothing
+uses? It says nothing about a project that has gone quiet as a whole.
+This subscription holds one resource group,
+<code>research-mesh-rg</code>, with six resources: a container app and
+its environment, a Foundry account with one project and a gpt-5-mini
+deployment, a container registry and a Log Analytics workspace.</p>
+<p>Cost Management reports what the group was charged, and the totals
+below are Azure's own:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-3.png"
+alt="Table: Resource, Last 30 days, Since Aug 13" /></p>
+<p>$5.09 over the last 30 days, and the registry is 99.8% of it. Its
+Basic tier bills a flat daily fee whether anyone pulls an image or not.
+Everything else bills on use, and use is close to zero: the app served 0
+requests in seven days and the deployment under a cent of tokens in
+thirty.</p>
+<p>None of the six trips a check, because each is in use by another: the
+registry holds the image the app runs, the account has a deployment, and
+the environment has an app. Finding a group like this takes Cost
+Management data, which is a different source from anything a scan
+reads.</p>
+<hr />
+<h4 id="three-clouds-same-resource">Three Clouds, Same Resource</h4>
+<p>The same idle resource costs differently on each cloud. Figures are
+from each article's bundled price table.</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-4.png"
+alt="Table: Resource, AWS (us-east-1), Google Cloud (us-central1), Azure (eastus)" /></p>
+<p>Two checks exist only on Azure. <strong>Orphaned NICs</strong>,
+because a network interface is a resource of its own that outlives its
+VM and blocks deleting the public IP, subnet and virtual network it
+references. And <strong>empty resource groups</strong>, because a
+resource group is a container inside a subscription.</p>
+<p>🔎 Tip: an Azure public IP bills the same rate attached or idle, so
+nothing in the price signals that it is unused. On Google Cloud an idle
+static IP costs more than one in use.</p>
+<hr />
+<h4 id="what-the-checks-leave-alone">What the Checks Leave Alone</h4>
+<p>A false positive here costs an outage, so each check states the
+condition it declines to act on.</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-5.png"
+alt="Table: Condition, Treatment" /></p>
+<hr />
+<h4 id="compare-and-contrast">Compare and Contrast</h4>
+<p><img src="https://raw.githubusercontent.com/xbill9/zombiescan-azure/main/articles/zombiescan-azure/medium/img/devto-zombiescan-azure-table-6.png"
+alt="Table: zombiescan, Azure Advisor, Cost Management, Cross-subscription SaaS" /></p>
+<hr />
+<h4 id="so-which-one">So, Which One?</h4>
+<p>Cost Management answers what a subscription spent, down to the
+resource, and it is the only source that sees a quiet project like
+<code>research-mesh-rg</code>. Advisor covers more ground, including
+right-sizing judgements this tool leaves alone.</p>
+<p><code>zombiescan</code> fits the case where the answer has to be
+per-resource, priced, and produced without granting anything access to
+the subscriptions. A laptop, an existing <code>az login</code>, and
+under ten seconds for this subscription.</p>
+<hr />
+<h4 id="cost">Cost</h4>
+<p>A scan costs nothing. ARM list and get calls, Resource Graph queries
+and Azure Monitor metric reads carry no charge, and the price table
+ships with the package.</p>
+<p>Regenerating the table calls the Azure Retail Prices API, which is
+public and free.</p>
+<hr />
+<h4 id="tests">Tests</h4>
+<pre class="shell"><code>uv run pytest -q
+380 passed, 10 deselected in 0.34s</code></pre>
+<p>The suite runs offline against recorded ARM responses, with no
+credentials. The ten deselected tests reach a real subscription and run
+under <code>ZOMBIESCAN_LIVE=1</code>: they verify every pinned
+<code>api-version</code> against ARM and every <code>--yes</code>
+command against the installed CLI, two facts about the outside world
+that a comment cannot keep true.</p>
+<p>Recorded responses are keyed by the tail of the request path, and
+they include resources that are in use, because half of what these
+checks do is decline to report.</p>
+<hr />
+<h4 id="teardown">Teardown</h4>
+<pre class="shell"><code>uv tool uninstall zombiescan-azure</code></pre>
+<p>Nothing is left in any subscription. The tool creates no service
+principal, no role assignment, no storage account and no stored state.
+Sign the CLI out with <code>az logout</code>.</p>
+<hr />
+<h4 id="summary">Summary</h4>
+<p>The goal of this article was to audit every Azure subscription a set
+of <code>az</code> credentials can reach and attach a monthly cost to
+each unused resource. The key to the solution was holding one token per
+tenant, checking provider registration before trusting an empty page,
+and pricing every finding from the Azure Retail Prices API while keeping
+the scan read-only. The results were:</p>
+<ul>
+<li>🟢 30 checks in two packs across Compute, Networking, Storage, SQL,
+Key Vault, Container Registry, App Service, Container Apps, AI Services,
+Machine Learning, Log Analytics and AKS</li>
+<li>🟢 Every tenant the CLI has signed into, from one
+<code>az login</code> each, with the account kind — personal or work —
+named in the header</li>
+<li>🟢 One call per subscription: ARM lists are subscription-wide and
+Resource Graph joins resource types in one query</li>
+<li>🟢 Unregistered providers skipped and counted, so an empty page
+never reads as a clean subscription</li>
+<li>🟢 Disks priced by tier and redundancy, and the priciest classes —
+provisioned model throughput, GPU clusters, dedicated hosts — priced
+from their own meters</li>
+<li>🟢 JSON against a published schema, a self-contained HTML report,
+and a shell cleanup plan that is printed and never run</li>
+<li>🟢 <code>clean</code> previews by default, re-reads each resource
+before planning, and marks steps with no recovery window</li>
+<li>⚠️ The subscription scanned here is clean: 0 findings, with 4 of 30
+pairs skipped for unregistered providers, so the per-resource figures
+come from the recorded test responses</li>
+<li>⚠️ Figures are pay-as-you-go list prices, excluding reservations,
+savings plans, Azure Hybrid Benefit and credits</li>
+<li>⚠️ Two checks judge idleness from seven days of Azure Monitor
+metrics, which is one window among several reasonable ones</li>
+<li>❌ A resource group that has gone quiet as a whole trips no check;
+seeing it takes Cost Management data</li>
+</ul>
+<p>Scope: one personal Microsoft account with one tenant and one
+subscription, 30 checks, a single sweep per figure quoted, run from one
+laptop. Rates are eastus from a table generated 2026-09-23; the AWS and
+Google Cloud figures come from those articles' own price tables. The
+read-only guarantee holds for the packs in this repository, which are
+reviewed; a pack installed from PyPI runs with the same credentials and
+carries no such guarantee.</p>
+<p>The strategy for using per-resource pricing for Azure waste detection
+was validated with an incremental step by step approach.</p>
+<hr />
+<h4 id="references">References</h4>
+<ul>
+<li>Repository, MIT: <a
+href="https://github.com/xbill9/zombiescan-azure">https://github.com/xbill9/zombiescan-azure</a></li>
+<li>Findings JSON Schema: <a
+href="https://github.com/xbill9/zombiescan-azure/blob/main/docs/findings.schema.json">https://github.com/xbill9/zombiescan-azure/blob/main/docs/findings.schema.json</a></li>
+<li>Pack author guide: <a
+href="https://github.com/xbill9/zombiescan-azure/blob/main/docs/PACKS.md">https://github.com/xbill9/zombiescan-azure/blob/main/docs/PACKS.md</a></li>
+<li>Part one, AWS: <a
+href="https://dev.to/aws-builders/find-the-aws-resources-nobody-is-using-and-what-they-cost-you-35bj">https://dev.to/aws-builders/find-the-aws-resources-nobody-is-using-and-what-they-cost-you-35bj</a></li>
+<li>Part two, Google Cloud: <a
+href="https://dev.to/gde/what-nobody-is-using-in-your-google-cloud-projects-and-what-it-costs-1k0">https://dev.to/gde/what-nobody-is-using-in-your-google-cloud-projects-and-what-it-costs-1k0</a></li>
+<li>Azure Retail Prices API: <a
+href="https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices">https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices</a></li>
+<li>Azure Resource Graph: <a
+href="https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview">https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview</a></li>
+<li>Resource providers and registration: <a
+href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types">https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types</a></li>
+<li>Managed disk pricing: <a
+href="https://azure.microsoft.com/en-us/pricing/details/managed-disks/">https://azure.microsoft.com/en-us/pricing/details/managed-disks/</a></li>
+<li>Capacity reservation billing: <a
+href="https://learn.microsoft.com/en-us/azure/virtual-machines/capacity-reservation-overview">https://learn.microsoft.com/en-us/azure/virtual-machines/capacity-reservation-overview</a></li>
+<li>Dedicated host pricing: <a
+href="https://learn.microsoft.com/en-us/azure/virtual-machines/dedicated-hosts">https://learn.microsoft.com/en-us/azure/virtual-machines/dedicated-hosts</a></li>
+</ul>
+</body>
+</html>
