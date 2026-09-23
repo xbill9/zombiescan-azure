@@ -1,0 +1,66 @@
+# python3 articles/zombiescan-azure/derive-figures.py
+# captured 2026-09-23T17:50:25Z
+
+price table generated 2026-09-23T17:19:30Z, region eastus, 730 h/month
+
+== Azure managed disks, flat per tier
+P1 LRS per month                                           $0.60   (table)
+P4 LRS per month                                           $5.28   (table)
+P10 LRS per month                                          $19.71   (table)
+P10 ZRS per month                                          $29.57   (table)
+P30 LRS per month                                          $135.17   (table)
+P80 LRS per month                                          $3,604.11   (table)
+S4 LRS per month                                           $1.54   (table)
+E10 LRS per month                                          $9.60   (table)
+1 GiB Premium SSD bills as P1 LRS                          $0.60   (helpers.disk_tier)
+65 GiB Premium SSD bills as P10 LRS                        $19.71   (helpers.disk_tier)
+100 GiB Premium SSD bills as P10 LRS                       $19.71   (helpers.disk_tier)
+128 GiB Premium SSD bills as P10 LRS                       $19.71   (helpers.disk_tier)
+4 GiB Standard HDD bills as S4 LRS                         $1.54   (helpers.disk_tier)
+32 GiB Standard HDD bills as S4 LRS                        $1.54   (helpers.disk_tier)
+Premium SSD v2 per GiB-month                               $0.08   (table)
+
+== Raw rates as stored in the table
+public_ip_hour                                             $0.005
+nat_gateway_hour (global)                                  $0.045
+load_balancer_hour (global)                                $0.025
+aks_cluster_hour Standard                                  $0.1
+dedicated_host_hour dsv3type3                              $4.225
+vm_hour Standard_D2s_v3                                    $0.096
+container_apps_hour dedicated_management                   $0.1
+
+== Hourly rates at 730 hours
+Standard static public IP per month                        $3.65   (public_ip_hour x 730)
+NAT Gateway per month                                      $32.85   (global rate x 730)
+Standard Load Balancer rules per month                     $18.25   (global rate x 730)
+AKS Standard control plane per month                       $73.00   (x 730)
+AKS Free control plane per month                           $0.00   (x 730)
+Dedicated host DSv3-Type3 per month                        $3,084.25   (x 730)
+Standard_D2s_v3 Linux per month                            $70.08   (x 730)
+ProvisionedManaged per PTU-hour                            $2.00
+DataZoneProvisionedManaged per PTU-hour                    $1.10
+GlobalProvisionedManaged per PTU-hour                      $1.00
+15 PTU ProvisionedManaged per month                        $21,900.00   (15 x rate x 730)
+Idle replica 0.5 vCPU / 1 GiB per month                    $11.83   ((0.5 idle_vcpu + 1 idle_gib) x 730)
+Dedicated D4 instance (4 vCPU, 16 GiB) per month           $224.81   ((4 vcpu + 16 gib) x 730)
+Dedicated plan management fee per month                    $73.00   (x 730)
+
+== The other two clouds, from their articles' evidence
+AWS gp3 per GB-month (us-east-1)                           $0.080
+AWS NAT gateway per month (us-east-1)                      $32.85
+GCP pd-balanced per GB-month (us-central1)                 $0.100
+AWS gp3, 128 GB                                            $10.24   (128 x per-GB)
+GCP pd-balanced, 128 GB                                    $12.80   (128 x per-GB)
+AWS gp3, 1 GB                                              $0.08   (1 x per-GB)
+Azure Premium SSD, 1 GiB (P1)                              $0.60   (tier)
+
+== research-mesh-rg, from evidence/cost-management.json (Azure's own totals)
+Last 30 days, whole group                                  $5.09
+Last 30 days, research-mesh-foundry                        $0.0080
+Last 30 days, researchmeshacr                              $5.0813
+Last 30 days, workspace-researchmeshrgts35                 $0.0000
+Since 2026-08-13, Container Registry                       $6.87
+Since 2026-08-13, Foundry Models                           $0.25
+Since 2026-08-13, Log Analytics                            $0.00
+Registry share of last 30 days                             99.8%
+Registry, a year at the last 30 days rate                  $61.82

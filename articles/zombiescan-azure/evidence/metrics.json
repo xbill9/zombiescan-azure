@@ -1,0 +1,58 @@
+{
+  "_command": "Azure Monitor metrics, 7 days, research-mesh-rg",
+  "_captured": "2026-09-23T17:46:41Z",
+  "data": {
+    "container_app_requests": {
+      "cost": 10079,
+      "interval": "P7D",
+      "namespace": "Microsoft.App/containerApps",
+      "resourceregion": "westus2",
+      "timespan": "2026-09-16T17:46:21Z/2026-09-23T17:46:21Z",
+      "value": [
+        {
+          "displayDescription": "Requests processed",
+          "errorCode": "Success",
+          "id": "/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/research-mesh-rg/providers/Microsoft.App/containerApps/research-azure/providers/Microsoft.Insights/metrics/Requests",
+          "name": {
+            "localizedValue": "Requests",
+            "value": "Requests"
+          },
+          "timeseries": [
+            {
+              "data": [
+                {
+                  "timeStamp": "2026-09-16T17:46:00Z",
+                  "total": 0
+                }
+              ],
+              "metadatavalues": []
+            }
+          ],
+          "type": "Microsoft.Insights/metrics",
+          "unit": "Count"
+        }
+      ]
+    },
+    "foundry_model_requests_by_deployment": {
+      "cost": 10079,
+      "interval": "P7D",
+      "namespace": "Microsoft.CognitiveServices/accounts",
+      "resourceregion": "westus3",
+      "timespan": "2026-09-16T17:46:22Z/2026-09-23T17:46:22Z",
+      "value": [
+        {
+          "displayDescription": "Number of calls made to the model API over a period of time. Applies to PTU, PTU-Managed and Pay-as-you-go deployments.",
+          "errorCode": "Success",
+          "id": "/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/research-mesh-rg/providers/Microsoft.CognitiveServices/accounts/research-mesh-foundry/providers/Microsoft.Insights/metrics/ModelRequests",
+          "name": {
+            "localizedValue": "Model Requests",
+            "value": "ModelRequests"
+          },
+          "timeseries": [],
+          "type": "Microsoft.Insights/metrics",
+          "unit": "Count"
+        }
+      ]
+    }
+  }
+}

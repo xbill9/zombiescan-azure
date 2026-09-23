@@ -1,0 +1,6 @@
+# uv sync && uv run zombiescan --version
+# captured 2026-09-23T17:46:41Z
+
+Resolved 18 packages in 0.75ms
+Checked 17 packages in 0.21ms
+zombiescan, version 0.1.0

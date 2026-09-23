@@ -1,0 +1,56 @@
+# python3 articles/zombiescan-azure/show-fixture-findings.py
+# captured 2026-09-23T17:46:41Z
+
+49 findings from 30 checks, recorded responses, prices generated 2026-09-23T17:19:30Z
+total $32,345.26/month
+
+Check                              Resource                           Monthly
+idle-provisioned-deployment        acct-ptu/ptu-idle              $21,900.00 
+idle-ml-compute                    ws-research/gpu-warm            $4,467.60 
+idle-dedicated-host                host-idle                       $3,084.25 
+idle-workload-profile              env-single/d4-solo                $522.62 
+idle-app-service-plan              prod-plan                         $459.90 
+unused-capacity-reservation        cr-partial                        $420.48 
+empty-container-apps-environment   env-empty-dedicated               $297.81 
+idle-workload-profile              env-mixed/d4-idle                 $224.81 
+idle-ml-compute                    ws-research/ci-forever            $213.89 
+unused-capacity-reservation        cr-idle                           $140.16 
+unused-capacity-reservation        cr-failover                       $140.16 
+idle-app-service-plan              linux-plan                        $113.15 
+aks-idle-cluster                   scaled-to-zero                     $73.00 
+empty-container-registry           oldbuilds                          $50.69 
+empty-vnet                         abandoned-vnet                     $32.85 
+idle-nat-gateway                   egress-gw-old                      $32.85 
+orphaned-snapshot                  pre-upgrade-2025                   $25.60 
+deallocated-vm                     batch-runner                       $24.90 
+idle-load-balancer                 api-lb                             $21.90 
+deallocated-vm                     forgotten-lab                      $19.71 
+unattached-disk                    orphan-data                        $19.71 
+unattached-disk                    v2-orphan                          $16.21 
+idle-container-app                 app-idle                           $11.83 
+paused-sql-database                analytics-sql/reporting            $11.50 
+disabled-key-vault-key             prod-kv/retired-large               $5.00 
+unused-image                       golden-2024                         $4.80 
+orphaned-nic                       web-01-nic-old                      $3.65 
+unused-public-ip                   lb-frontend-old                     $3.65 
+disabled-key-vault-key             prod-kv/retired-signing             $1.00 
+unattached-disk                    tiny-scratch                        $0.60 
+unused-dns-zone                    old-campaign.example                $0.50 
+unused-dns-zone                    staging.example                     $0.50 
+aks-idle-cluster                   free-sandbox                        $0.00 
+disabled-key-vault-key             prod-kv/old-software                $0.00 
+empty-ai-services-account          ai-empty                            $0.00 
+empty-container-apps-environment   env-empty                           $0.00 
+empty-resource-group               leftover-rg                         $0.00 
+idle-app-service-plan              free-plan                           $0.00 
+idle-dedicated-host                host-new-family                     $0.00~
+idle-load-balancer                 legacy-lb                           $0.00 
+idle-workload-profile              env-mixed/gpu-idle                  $0.00~
+stale-key-vault-secret             prod-kv/legacy-api-token            $0.00 
+unbounded-log-workspace            central-logs                        $0.00 
+unmanaged-storage-account          buildartifacts                      $0.00 
+unused-availability-test           checkout-ping                       $0.00 
+unused-nsg                         legacy-web-nsg                      $0.00 
+unused-public-ip                   legacy-basic                        $0.00 
+unused-public-ip                   pool-ip-3                           $0.00 
+unused-subnet                      prod-vnet/retired-batch             $0.00

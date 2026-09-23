@@ -1,0 +1,22 @@
+# zombiescan providers
+# captured 2026-09-23T17:46:41Z
+
+  Microsoft.App  3 check(s)
+  Microsoft.CognitiveServices  2 check(s)
+  Microsoft.Compute  6 check(s)
+  Microsoft.ContainerRegistry  1 check(s)
+  Microsoft.ContainerService  1 check(s)
+  Microsoft.Insights  3 check(s)
+  Microsoft.KeyVault  2 check(s)
+  Microsoft.MachineLearningServices  1 check(s)
+  Microsoft.Network  9 check(s)
+  Microsoft.OperationalInsights  1 check(s)
+  Microsoft.Resources  1 check(s)
+  Microsoft.Sql  1 check(s)
+  Microsoft.Storage  1 check(s)
+  Microsoft.Web  1 check(s)
+
+A provider that is not registered on a subscription is skipped, not reported as an error: a 
+subscription that never used a service has no waste in it. zombiescan checks registration first 
+because ARM answers an unregistered provider's list call with an empty page rather than an error, 
+which would otherwise read as a clean subscription.

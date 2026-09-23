@@ -1,0 +1,42 @@
+{
+  "_command": "Resource Graph: Resources | summarize count() by type, location, resourceGroup",
+  "_captured": "2026-09-23T17:46:41Z",
+  "data": [
+    {
+      "count": 1,
+      "location": "westus2",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.app/containerapps"
+    },
+    {
+      "count": 1,
+      "location": "westus2",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.app/managedenvironments"
+    },
+    {
+      "count": 1,
+      "location": "westus3",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.cognitiveservices/accounts"
+    },
+    {
+      "count": 1,
+      "location": "westus3",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.cognitiveservices/accounts/projects"
+    },
+    {
+      "count": 1,
+      "location": "westus2",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.containerregistry/registries"
+    },
+    {
+      "count": 1,
+      "location": "westus2",
+      "resourceGroup": "research-mesh-rg",
+      "type": "microsoft.operationalinsights/workspaces"
+    }
+  ]
+}

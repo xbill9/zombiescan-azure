@@ -1,0 +1,97 @@
+{
+  "_command": "Cost Management query, resource group research-mesh-rg",
+  "_captured": "2026-09-23T17:46:41Z",
+  "data": {
+    "last_30_days_total": {
+      "period": {
+        "from": "2026-08-24T00:00:00Z",
+        "to": "2026-09-23T23:59:59Z"
+      },
+      "grouping": [],
+      "rows": [
+        {
+          "Cost": 5.0893727504,
+          "Currency": "USD"
+        }
+      ]
+    },
+    "last_30_days_by_resource": {
+      "period": {
+        "from": "2026-08-24T00:00:00Z",
+        "to": "2026-09-23T23:59:59Z"
+      },
+      "grouping": [
+        "ResourceId",
+        "MeterCategory"
+      ],
+      "rows": [
+        {
+          "Cost": 0.0080321,
+          "ResourceId": "/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourcegroups/research-mesh-rg/providers/microsoft.cognitiveservices/accounts/research-mesh-foundry",
+          "MeterCategory": "Foundry Models",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 5.0813406504,
+          "ResourceId": "/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourcegroups/research-mesh-rg/providers/microsoft.containerregistry/registries/researchmeshacr",
+          "MeterCategory": "Container Registry",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.0,
+          "ResourceId": "/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourcegroups/research-mesh-rg/providers/microsoft.operationalinsights/workspaces/workspace-researchmeshrgts35",
+          "MeterCategory": "Log Analytics",
+          "Currency": "USD"
+        }
+      ]
+    },
+    "since_2026_08_13_by_meter": {
+      "period": {
+        "from": "2026-08-13T00:00:00Z",
+        "to": "2026-09-23T23:59:59Z"
+      },
+      "grouping": [
+        "MeterCategory",
+        "Meter"
+      ],
+      "rows": [
+        {
+          "Cost": 6.872490737,
+          "MeterCategory": "Container Registry",
+          "Meter": "Basic Registry Unit",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.0,
+          "MeterCategory": "Container Registry",
+          "Meter": "Task vCPU Duration",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.06680975,
+          "MeterCategory": "Foundry Models",
+          "Meter": "GPT 5 Mini Inpt Glbl 1M Tokens",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.0117824,
+          "MeterCategory": "Foundry Models",
+          "Meter": "GPT 5 Mini cchd Inpt Glbl 1M Tokens",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.169898,
+          "MeterCategory": "Foundry Models",
+          "Meter": "GPT 5 Mini outpt Glbl 1M Tokens",
+          "Currency": "USD"
+        },
+        {
+          "Cost": 0.0,
+          "MeterCategory": "Log Analytics",
+          "Meter": "Analytics Logs Data Ingestion",
+          "Currency": "USD"
+        }
+      ]
+    }
+  }
+}

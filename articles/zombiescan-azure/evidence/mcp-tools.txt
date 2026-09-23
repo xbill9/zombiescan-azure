@@ -1,0 +1,10 @@
+# zombiescan-mcp, tools/list over stdio
+# captured 2026-09-23T17:46:41Z
+
+# 5 tool(s)
+
+  scan_subscription  Scan Azure subscriptions for unused resources and price them. Read-only: read ca
+  estimate_savings  Total, count and break down the findings in a report, with an optional filter by
+  explain_finding  Explain why a check treats a resource as waste, how its cost is worked out, and 
+  list_checks  List the installed checks: what each one looks for, which pack ships it, and whe
+  plan_cleanup  Show exactly what `zombiescan clean` would do to the findings in a report: the A

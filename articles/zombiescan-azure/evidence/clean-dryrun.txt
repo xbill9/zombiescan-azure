@@ -1,0 +1,12 @@
+# zombiescan clean --all-subscriptions
+# captured 2026-09-23T17:46:41Z
+
+Scanning as xbill@glitnir.com
+Tenant Default Directory — personal Microsoft account
+  domain        xbillglitnircom.onmicrosoft.com
+  tenant id     40482c55-d00d-4c6d-8903-643d76a74b9c
+  signed in as  xbill@glitnir.com
+  subscription  Azure subscription 1 (default)
+                3db3ce66-50b6-4d11-91ef-5950cf4039ed
+
+Nothing to clean.
