@@ -1,0 +1,145 @@
+{
+  "workspaces": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research",
+        "name": "ws-research",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {}
+      }
+    ]
+  },
+  "computes": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/ci-forever",
+        "name": "ci-forever",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "ComputeInstance",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "STANDARD_DS3_V2",
+            "state": "Running"
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/ci-autostop",
+        "name": "ci-autostop",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "ComputeInstance",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "STANDARD_DS3_V2",
+            "state": "Running",
+            "idleTimeBeforeShutdown": "PT60M"
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/ci-scheduled",
+        "name": "ci-scheduled",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "ComputeInstance",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "STANDARD_DS3_V2",
+            "state": "Running",
+            "schedules": {
+              "computeStartStop": [
+                {
+                  "action": "Stop",
+                  "status": "Enabled"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/ci-stopped",
+        "name": "ci-stopped",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "ComputeInstance",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "STANDARD_DS3_V2",
+            "state": "Stopped"
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/gpu-warm",
+        "name": "gpu-warm",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "AmlCompute",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "Standard_NC6s_v3",
+            "scaleSettings": {
+              "minNodeCount": 2,
+              "maxNodeCount": 4,
+              "nodeIdleTimeBeforeScaleDown": "PT120S"
+            },
+            "nodeStateCounts": {
+              "idleNodeCount": 2,
+              "runningNodeCount": 0
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/cpu-cold",
+        "name": "cpu-cold",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "AmlCompute",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "Standard_DS3_v2",
+            "scaleSettings": {
+              "minNodeCount": 0,
+              "maxNodeCount": 4
+            },
+            "nodeStateCounts": {
+              "idleNodeCount": 1
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.MachineLearningServices/workspaces/ws-research/computes/cpu-busy",
+        "name": "cpu-busy",
+        "location": "eastus",
+        "tags": {},
+        "properties": {
+          "computeType": "AmlCompute",
+          "provisioningState": "Succeeded",
+          "properties": {
+            "vmSize": "Standard_DS3_v2",
+            "scaleSettings": {
+              "minNodeCount": 2,
+              "maxNodeCount": 4
+            },
+            "nodeStateCounts": {
+              "idleNodeCount": 0,
+              "runningNodeCount": 2
+            }
+          }
+        }
+      }
+    ]
+  }
+}

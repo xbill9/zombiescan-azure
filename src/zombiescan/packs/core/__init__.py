@@ -1,7 +1,8 @@
 """The core pack: the Azure services almost every subscription uses.
 
 Compute, Networking, Storage, SQL Database, Key Vault, Container Registry,
-App Service, Log Analytics and Resource Manager itself. Anything here is
+App Service, Container Apps, AI Services, Machine Learning, Log Analytics and
+Resource Manager itself. Anything here is
 waste that shows up on a first scan of a subscription nobody has audited.
 
 Checks are discovered by existing -- ``import_pack_modules`` imports every
@@ -19,7 +20,10 @@ from zombiescan.packs import import_pack_modules, register_pack
 register_pack(
     "core",
     version="0.1.0",
-    description="Compute, Networking, Storage, SQL, Key Vault, Container Registry, App Service",
+    description=(
+        "Compute, Networking, Storage, SQL, Key Vault, Container Registry, App Service, "
+        "Container Apps, AI Services, Machine Learning"
+    ),
 )
 
 import_pack_modules(__name__, list(__path__))

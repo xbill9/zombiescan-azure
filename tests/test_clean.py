@@ -196,6 +196,91 @@ def test_a_group_delete_is_planned_when_the_group_is_still_empty(pricing):
     assert arm.reads, "the group was not re-checked before planning its delete"
 
 
+HOST_ID = arm_id("Microsoft.Compute/hostGroups", "hg-prod") + "/hosts/host-idle"
+
+
+def test_a_host_delete_is_refused_if_a_vm_was_placed_since_the_scan(pricing):
+    arm = RecordingArm({HOST_ID: {"properties": {"virtualMachines": [{"id": "vm-1"}]}}})
+    outcome = clean.plan_for(
+        arm,
+        _finding(check="idle-dedicated-host", resource="host-idle", identifier=HOST_ID),
+        pricing,
+    )
+    assert outcome.status == clean.FAILED
+    assert "now runs 1 VM" in outcome.error
+    assert arm.sent == []
+
+
+def test_a_host_delete_is_planned_when_the_host_is_still_empty(pricing):
+    arm = RecordingArm({HOST_ID: {"properties": {"virtualMachines": []}}})
+    outcome = clean.plan_for(
+        arm,
+        _finding(check="idle-dedicated-host", resource="host-idle", identifier=HOST_ID),
+        pricing,
+    )
+    assert outcome.status == clean.PLANNED
+    assert [step.summary for step in outcome.steps] == [f"DELETE {HOST_ID}"]
+    assert not outcome.steps[0].irreversible
+    assert HOST_ID in arm.reads
+
+
+CRG_ID = arm_id("Microsoft.Compute/capacityReservationGroups", "crg-launch")
+RESERVATION_ID = f"{CRG_ID}/capacityReservations/cr-partial"
+
+
+def _reservation_arm(allocated: int, capacity: int = 4) -> RecordingArm:
+    vms = [{"id": f"vm-{i}"} for i in range(allocated)]
+    return RecordingArm(
+        {
+            CRG_ID: {
+                "properties": {
+                    "instanceView": {
+                        "capacityReservations": [
+                            {
+                                "name": "cr-partial",
+                                "utilizationInfo": {
+                                    "currentCapacity": capacity,
+                                    "virtualMachinesAllocated": vms,
+                                },
+                            }
+                        ]
+                    }
+                }
+            },
+            RESERVATION_ID: {"sku": {"name": "Standard_D4s_v5", "capacity": capacity}},
+        }
+    )
+
+
+def _reservation_finding():
+    return _finding(
+        check="unused-capacity-reservation", resource="cr-partial", identifier=RESERVATION_ID
+    )
+
+
+def test_a_partly_used_reservation_is_shrunk_to_what_is_allocated_now(pricing):
+    """Sized at planning time, so a VM started since the scan keeps its slot."""
+    arm = _reservation_arm(allocated=2)
+    outcome = clean.plan_for(arm, _reservation_finding(), pricing)
+    assert outcome.status == clean.PLANNED
+    (step,) = outcome.steps
+    assert step.method == "PATCH"
+    assert step.body == {"sku": {"name": "Standard_D4s_v5", "capacity": 2}}
+    assert arm.sent == []
+
+
+def test_an_unused_reservation_is_deleted(pricing):
+    outcome = clean.plan_for(_reservation_arm(allocated=0), _reservation_finding(), pricing)
+    assert [step.summary for step in outcome.steps] == [f"DELETE {RESERVATION_ID}"]
+    assert not outcome.steps[0].irreversible
+
+
+def test_a_reservation_that_filled_up_since_the_scan_is_left_alone(pricing):
+    outcome = clean.plan_for(_reservation_arm(allocated=4), _reservation_finding(), pricing)
+    assert outcome.status == clean.FAILED
+    assert "now fully used" in outcome.error
+
+
 # --------------------------------------------------------------------------
 # applying
 
@@ -258,3 +343,185 @@ def test_the_audit_document_records_what_was_planned(arm, pricing):
     assert action["resource_group"] == "test-rg"
     assert action["subscription"] == SUBSCRIPTION
     assert [step["method"] for step in action["steps"]] == ["PUT", "DELETE"]
+
+
+# --------------------------------------------------------------------------
+# AI Services, Container Apps and ML compute
+
+
+ACCOUNT_ID = arm_id("Microsoft.CognitiveServices/accounts", "acct-ptu")
+DEPLOYMENT_ID = f"{ACCOUNT_ID}/deployments/ptu-idle"
+METRICS_PATH = f"{ACCOUNT_ID}/providers/Microsoft.Insights/metrics"
+
+
+def test_a_deployment_that_started_serving_since_the_scan_is_left_alone(pricing):
+    served = {
+        "value": [
+            {
+                "timeseries": [
+                    {
+                        "metadatavalues": [{"value": "ptu-idle"}],
+                        "data": [{"total": 12}],
+                    }
+                ]
+            }
+        ]
+    }
+    arm = RecordingArm({METRICS_PATH: served})
+    outcome = clean.plan_for(
+        arm,
+        _finding(
+            check="idle-provisioned-deployment",
+            resource="acct-ptu/ptu-idle",
+            identifier=DEPLOYMENT_ID,
+        ),
+        pricing,
+    )
+    assert outcome.status == clean.FAILED
+    assert "has served 12 request(s)" in outcome.error
+
+
+def test_a_deployment_still_idle_is_deleted(pricing):
+    arm = RecordingArm()
+    outcome = clean.plan_for(
+        arm,
+        _finding(
+            check="idle-provisioned-deployment",
+            resource="acct-ptu/ptu-idle",
+            identifier=DEPLOYMENT_ID,
+        ),
+        pricing,
+    )
+    assert [step.summary for step in outcome.steps] == [f"DELETE {DEPLOYMENT_ID}"]
+    assert METRICS_PATH in arm.reads
+
+
+EMPTY_ACCOUNT_ID = arm_id("Microsoft.CognitiveServices/accounts", "ai-empty")
+
+
+def test_an_account_that_gained_a_deployment_is_not_deleted(pricing):
+    arm = RecordingArm({f"{EMPTY_ACCOUNT_ID}/deployments": [{"name": "chat"}]})
+    outcome = clean.plan_for(
+        arm,
+        _finding(
+            check="empty-ai-services-account", resource="ai-empty", identifier=EMPTY_ACCOUNT_ID
+        ),
+        pricing,
+    )
+    assert outcome.status == clean.FAILED
+    assert "now has 1 deployments (chat)" in outcome.error
+
+
+def test_an_empty_account_delete_is_recoverable(pricing):
+    """Cognitive Services soft-delete keeps a deleted account for 48 hours."""
+    outcome = clean.plan_for(
+        RecordingArm(),
+        _finding(
+            check="empty-ai-services-account", resource="ai-empty", identifier=EMPTY_ACCOUNT_ID
+        ),
+        pricing,
+    )
+    assert [step.summary for step in outcome.steps] == [f"DELETE {EMPTY_ACCOUNT_ID}"]
+    assert not outcome.steps[0].irreversible
+
+
+ENVIRONMENT_ID = arm_id("Microsoft.App/managedEnvironments", "env-empty")
+APPS_PATH = f"/subscriptions/{SUBSCRIPTION}/providers/Microsoft.App/containerApps"
+
+
+def test_an_environment_that_gained_an_app_is_not_deleted(pricing):
+    """Deleting an environment deletes the apps inside it."""
+    arm = RecordingArm({APPS_PATH: [{"properties": {"environmentId": ENVIRONMENT_ID.upper()}}]})
+    outcome = clean.plan_for(
+        arm,
+        _finding(
+            check="empty-container-apps-environment",
+            resource="env-empty",
+            identifier=ENVIRONMENT_ID,
+        ),
+        pricing,
+    )
+    assert outcome.status == clean.FAILED
+    assert "now holds a container app" in outcome.error
+
+
+def test_deleting_an_environment_is_irreversible_because_its_ip_is_released(pricing):
+    outcome = clean.plan_for(
+        RecordingArm(),
+        _finding(
+            check="empty-container-apps-environment",
+            resource="env-empty",
+            identifier=ENVIRONMENT_ID,
+        ),
+        pricing,
+    )
+    assert [step.summary for step in outcome.steps] == [f"DELETE {ENVIRONMENT_ID}"]
+    assert outcome.steps[0].irreversible
+
+
+def test_an_idle_container_app_and_profile_are_refused_with_a_reason(pricing):
+    for check in ("idle-container-app", "idle-workload-profile"):
+        outcome = clean.plan_for(RecordingArm(), _finding(check=check), pricing)
+        assert outcome.status == clean.UNSUPPORTED
+        assert "az containerapp" in outcome.error
+
+
+COMPUTE_ID = (
+    arm_id("Microsoft.MachineLearningServices/workspaces", "ws-research") + "/computes/ci-forever"
+)
+
+
+def _compute_finding():
+    return _finding(
+        check="idle-ml-compute", resource="ws-research/ci-forever", identifier=COMPUTE_ID
+    )
+
+
+def test_a_running_instance_is_stopped_not_deleted(pricing):
+    arm = RecordingArm(
+        {
+            COMPUTE_ID: {
+                "properties": {
+                    "computeType": "ComputeInstance",
+                    "properties": {"state": "Running"},
+                }
+            }
+        }
+    )
+    outcome = clean.plan_for(arm, _compute_finding(), pricing)
+    assert [step.summary for step in outcome.steps] == [f"POST {COMPUTE_ID}/stop"]
+    assert not outcome.steps[0].irreversible
+
+
+def test_an_instance_given_an_idle_shutdown_since_the_scan_is_left_alone(pricing):
+    arm = RecordingArm(
+        {
+            COMPUTE_ID: {
+                "properties": {
+                    "computeType": "ComputeInstance",
+                    "properties": {"state": "Running", "idleTimeBeforeShutdown": "PT30M"},
+                }
+            }
+        }
+    )
+    outcome = clean.plan_for(arm, _compute_finding(), pricing)
+    assert outcome.status == clean.FAILED
+
+
+def test_a_cluster_minimum_is_dropped_and_its_maximum_kept(pricing):
+    arm = RecordingArm(
+        {
+            COMPUTE_ID: {
+                "properties": {
+                    "computeType": "AmlCompute",
+                    "properties": {"scaleSettings": {"minNodeCount": 2, "maxNodeCount": 6}},
+                }
+            }
+        }
+    )
+    outcome = clean.plan_for(arm, _compute_finding(), pricing)
+    (step,) = outcome.steps
+    assert step.method == "PATCH"
+    assert step.body == {
+        "properties": {"properties": {"scaleSettings": {"minNodeCount": 0, "maxNodeCount": 6}}}
+    }

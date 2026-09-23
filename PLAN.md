@@ -108,6 +108,8 @@ them.
 | --- | --- | --- |
 | ✅ Unattached managed disks | Billed in full while attached to nothing | by tier: $0.60 (P1) to $3,604 (P80) |
 | ✅ Stopped and deallocated VMs | The compute is free, the disks and IPs are not | disk and public IP cost |
+| ✅ Idle dedicated hosts | Billed per host, VMs or no VMs | **$600–$40,000/month** by host SKU |
+| ✅ Unused capacity reservations | Every reserved slot bills at the VM rate, used or not | the VM size's rate per unused slot |
 | ✅ Orphaned snapshots | Source disk gone | ~$0.05/GB, as a ceiling |
 | ✅ Unused managed images | Nothing boots from them | ~$0.05/GB |
 | ✅ Unused public IPs | Billed the same idle as in use | ~$3.65 each |
@@ -127,6 +129,12 @@ them.
 | ✅ Unmanaged storage accounts | Versioning on, no lifecycle policy | unpriced; reported as growth |
 | ✅ Unused availability tests | Watching a deleted component | $0 (the alerts are the cost) |
 | ✅ Empty resource groups | Nothing inside | $0 (hygiene) |
+| ✅ Idle provisioned model deployments | Every PTU bills hourly; no requests in 7 days | **$1–$2.72 per PTU-hour** |
+| ✅ Empty AI Services accounts | No deployment and no project | $0 (hygiene) |
+| ✅ Idle container apps | `minReplicas` ≥ 1, no requests in 7 days | idle vCPU and memory rate per replica |
+| ✅ Empty Container Apps environments | No app inside | $0 Consumption; Dedicated instances + $73 fee |
+| ✅ Idle workload profiles | Dedicated instances with no app on them | ~$225/month per D4 instance |
+| ✅ Idle ML compute | Instance with no idle shutdown; cluster minimum above zero | the VM rate per node |
 
 ### aks pack
 
@@ -191,7 +199,8 @@ Gateway $0.045/hour; Standard load balancer rules $0.025/hour; App Service P1
 v3 $0.315/hour Windows and $0.155 Linux; SQL General Purpose storage
 $0.115/GB; public DNS zone $0.50 for the first 25; Key Vault HSM key $1.00;
 Container Registry $0.1666/$0.6666/$1.6666 per day; Log Analytics ingestion
-$2.30/GB and retention $0.10/GB-month; AKS Standard $0.10/hour.
+$2.30/GB and retention $0.10/GB-month; AKS Standard $0.10/hour; dedicated host DSv3-Type3 $4.225/hour; D2s_v3
+Linux compute $0.096/hour.
 
 **RBAC posture:** read-only. `policy/zombiescan-scanner-role.json` is a custom
 role holding exactly the read actions the checks use, generated from the
@@ -274,11 +283,11 @@ repo root makes it installable with
 
 ## Wanted but not built
 
-- **Metric-driven checks** — idle SQL by connection count, over-provisioned
-  Cosmos DB, VMs at 2% CPU, Key Vault keys unused per diagnostic log. Every
-  check so far answers from a single list call; these need Azure Monitor
-  metrics and a lookback window, which is a new capability rather than another
-  row.
+- **More metric-driven checks** — idle SQL by connection count,
+  over-provisioned Cosmos DB, VMs at 2% CPU, Key Vault keys unused per
+  diagnostic log. `helpers.metric_totals` reads an Azure Monitor platform
+  metric over a 7-day window; `idle-provisioned-deployment` and
+  `idle-container-app` use it, and each of these is one more caller.
 - **Management-group scanning.** `--all-subscriptions` uses ARM's subscription
   list, which covers what the caller can see. Walking a management-group
   hierarchy deliberately, with per-group totals, is a different shape.
@@ -292,8 +301,6 @@ repo root makes it installable with
 
 ## Open questions
 
-- Cost lookback for "idle" judgements needs Azure Monitor metrics; decide the
-  default window (7 days is the usual answer).
 - Whether `--all-subscriptions` should default on. Off is faster and safer; on
   is what people actually want, because the forgotten resources are always in
   the subscription nobody opens.

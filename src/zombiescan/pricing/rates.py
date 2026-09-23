@@ -138,6 +138,19 @@ def _register_core_rates() -> None:
             default_variant="general_purpose",
         ),
         RateSpec("app_service.month", "app_service_hour", per_hour=True, variants=True),
+        # A dedicated host bills per host whatever runs on it, keyed by
+        # helpers.host_sku_key. No default: host prices run from under $1 to
+        # over $50 an hour, and guessing one would be wrong by that much.
+        RateSpec("dedicated_host.month", "dedicated_host_hour", per_hour=True, variants=True),
+        # Provisioned throughput, per PTU-hour, keyed by the deployment's SKU
+        # name: ProvisionedManaged, GlobalProvisionedManaged,
+        # DataZoneProvisionedManaged. Billed whether or not a request arrives.
+        RateSpec("ptu.month", "ptu_hour", per_hour=True, variants=True),
+        # Container Apps rates, all stored per hour: idle_vcpu and idle_gib for
+        # a Consumption replica that is running but not serving, and
+        # dedicated_vcpu, dedicated_gib and dedicated_management for the
+        # Dedicated plan.
+        RateSpec("container_apps.month", "container_apps_hour", per_hour=True, variants=True),
         # --- global, no region layer ---------------------------------------
         # A software-protected key in a Standard vault is free: Key Vault
         # bills per operation, not per key. Only HSM-protected keys carry a
@@ -159,6 +172,28 @@ def _register_core_rates() -> None:
     # hours ``per_hour`` would give it, which is why this is a resolver and
     # not a spec.
     register_resolver("acr.registry_month", _acr_registry_month)
+    # Linux pay-as-you-go compute by ARM size name. An unused capacity
+    # reservation slot and a running ML compute node both bill at this rate.
+    register_resolver("vm.month", _vm_month)
+
+
+def _vm_month(table: Any, region: str = "", variant: str = "") -> tuple[float, bool]:
+    """A VM size's monthly Linux compute rate, matching the size name in any case.
+
+    Compute and capacity reservations spell a size ``Standard_DS3_v2``; Azure
+    Machine Learning spells the same one ``STANDARD_DS3_V2``. The table keys
+    it the first way.
+    """
+    sizes, approximate = table.lookup_section("vm_hour", region)
+    if not sizes:
+        return 0.0, True
+    price = sizes.get(variant)
+    if price is None:
+        wanted = variant.lower()
+        price = next((p for size, p in sizes.items() if size.lower() == wanted), None)
+    if price is None:
+        return 0.0, True
+    return float(price) * table.hours_per_month, approximate
 
 
 _DAYS_PER_MONTH = 730 / 24

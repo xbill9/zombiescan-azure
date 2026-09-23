@@ -143,7 +143,7 @@ Tenant Contoso — work or school account
   signed in as  me@example.com
   subscription  Engineering
                 44444444-4444-4444-4444-444444444444
-2 subscription(s) across 2 tenants, 22 check(s) — read-only
+2 subscription(s) across 2 tenants, 30 check(s) — read-only
 ```
 
 `az account list` shows both as the same user with the same email. The kind
@@ -271,6 +271,8 @@ whole service with its own provider and its own pricing.
 | --- | --- | --- |
 | `unattached-disk` | Managed disks in `Unattached` state | yes, at the disk's **tier** rate |
 | `deallocated-vm` | VMs stopped or deallocated | the disks and public IPs they keep |
+| `idle-dedicated-host` | Dedicated hosts running no VMs | **yes, the full host rate** — $3,084/month for DSv3-Type3 |
+| `unused-capacity-reservation` | Capacity reservations with slots no VM is allocated to | yes, the VM size's pay-as-you-go rate per unused slot |
 | `orphaned-snapshot` | Snapshots whose source disk is gone | per stored GB-month, as a ceiling |
 | `unused-image` | Managed images nothing boots from | per stored GB-month |
 | `unused-public-ip` | Static public IPs attached to nothing | yes, at the ordinary rate; $0 when carved from a prefix, which bills per address |
@@ -290,6 +292,12 @@ whole service with its own provider and its own pricing.
 | `unmanaged-storage-account` | Versioned accounts with no lifecycle policy | unpriced; reported as growth |
 | `unused-availability-test` | Web tests watching a deleted component | no — reported for the alerts |
 | `empty-resource-group` | Resource groups containing nothing | no |
+| `idle-provisioned-deployment` | Provisioned (PTU) model deployments with no requests in 7 days | **yes, every PTU by the hour** — $21,900/month for 15 regional PTUs |
+| `empty-ai-services-account` | OpenAI and AI Services accounts with no deployment and no project | no |
+| `idle-container-app` | Container apps with `minReplicas` ≥ 1 and no requests in 7 days | the idle vCPU and memory rate for each kept replica |
+| `empty-container-apps-environment` | Environments with no container app | Dedicated profiles and their management fee; $0 if Consumption-only |
+| `idle-workload-profile` | Dedicated workload profiles no app runs on | yes, the profile's standing instances |
+| `idle-ml-compute` | ML compute instances with no idle shutdown; clusters held above zero nodes | the VM rate for each node |
 | `aks-idle-cluster` | AKS clusters running no nodes | **$73/month on Standard, $0 on Free** |
 
 ### Four that behave differently from what people expect

@@ -72,6 +72,35 @@ TEST_PRICES = {
     "dns_zone_month": {"first_25": 0.50, "beyond_25": 0.10},
     "keyvault_key_month": {"software": 0.0, "hsm": 1.00, "hsm_advanced": 5.00},
     "acr_registry_day": {"Basic": 0.1666, "Standard": 0.6666, "Premium": 1.6666},
+    # Linux pay-as-you-go compute, by ARM size name.
+    "vm_hour": {
+        "eastus": {
+            "Standard_D2s_v3": 0.096,
+            "Standard_D4s_v5": 0.192,
+            "Standard_DS3_v2": 0.229,
+            "Standard_NC6s_v3": 3.06,
+        }
+    },
+    # Per PTU-hour, keyed by the deployment SKU name.
+    "ptu_hour": {
+        "eastus": {
+            "ProvisionedManaged": 2.0,
+            "GlobalProvisionedManaged": 1.0,
+            "DataZoneProvisionedManaged": 1.1,
+        }
+    },
+    # Every Container Apps rate stored per hour.
+    "container_apps_hour": {
+        "eastus": {
+            "idle_vcpu": 0.0108,
+            "idle_gib": 0.0108,
+            "dedicated_vcpu": 0.057077,
+            "dedicated_gib": 0.004978,
+            "dedicated_management": 0.1,
+        }
+    },
+    # Keyed by helpers.host_sku_key: letters and digits of the SKU, lowercased.
+    "dedicated_host_hour": {"eastus": {"dsv3type3": 4.225}},
     "aks_cluster_hour": {
         "eastus": {"Free": 0.0, "Standard": 0.10, "Premium": 0.60},
         "westeurope": {"Free": 0.0, "Standard": 0.10},

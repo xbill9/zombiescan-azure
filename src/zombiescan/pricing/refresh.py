@@ -51,6 +51,9 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pathlib
+import re
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator
@@ -98,13 +101,35 @@ class RefreshContext:
         return list(_page(" and ".join(clauses)))
 
 
+# The Retail Prices API throttles with HTTP 429. The VM section alone is about
+# seventy pages, so a refresh reaches the limit often enough to need a retry.
+THROTTLE_RETRIES = 6
+
+
+def _get_json(url: str) -> dict[str, Any]:
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return json.loads(response.read())
+
+
+def _fetch_page(url: str) -> dict[str, Any]:
+    """One page, waiting out a 429 with the server's ``Retry-After`` or a backoff."""
+    for attempt in range(THROTTLE_RETRIES):
+        try:
+            return _get_json(url)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 429:
+                raise
+            wait = exc.headers.get("Retry-After") if exc.headers else None
+            time.sleep(float(wait) if wait and wait.isdigit() else 2 ** (attempt + 2))
+    return _get_json(url)
+
+
 def _page(filter_expression: str) -> Iterator[dict[str, Any]]:
     """Every row of one Retail Prices query, following ``NextPageLink``."""
     url: str | None = f"{RETAIL_API}?$filter={urllib.parse.quote(filter_expression)}"
     while url:
-        request = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(request, timeout=120) as response:
-            payload = json.loads(response.read())
+        payload = _fetch_page(url)
         yield from payload.get("Items") or []
         url = payload.get("NextPageLink")
 
@@ -356,6 +381,151 @@ def fetch_public_ip_rates(ctx: RefreshContext) -> dict[str, Any]:
             rows, lambda row: row.get("meterName") == "Standard IPv4 Static Public IP"
         )
     }
+
+
+# Spot and low-priority rows share a VM size's armSkuName and cost a fraction
+# of the pay-as-you-go rate; either one read as the size's price would
+# understate every finding priced from it.
+DISCOUNTED_SKU = ("Spot", "Low Priority")
+
+# Windows rows add the licence. Most products spell it "Windows"; a few GPU
+# series abbreviate it to "Srs Win", which a filter on the full word misses.
+WINDOWS_PRODUCT = re.compile(r"\bWin(dows)?\b")
+
+
+def _linux_pay_as_you_go(row: dict[str, Any]) -> bool:
+    return not WINDOWS_PRODUCT.search(row.get("productName") or "") and not any(
+        word in (row.get("skuName") or "") for word in DISCOUNTED_SKU
+    )
+
+
+@price_fetcher("vm_hour", label="VM compute, Linux pay-as-you-go, by size")
+def fetch_vm_rates(ctx: RefreshContext) -> dict[str, Any]:
+    """``{region: {vm size: usd per hour}}``, keyed by the ARM size name.
+
+    What an unused capacity reservation slot costs: Azure bills one at the
+    pay-as-you-go rate of its VM size. The Linux rate, because a reservation
+    carries no operating system licence.
+
+    ``startswith(productName,'Virtual Machines')`` keeps the VM products and
+    drops Cloud Services and dedicated hosts, which publish the same
+    armSkuName at other prices. The largest section in the table: about
+    seventy thousand rows across seventy-odd regions.
+    """
+    rows = ctx.rows(
+        "serviceName eq 'Virtual Machines'",
+        "startswith(productName,'Virtual Machines')",
+        "contains(productName,'Windows') eq false",
+        "contains(skuName,'Spot') eq false",
+        "contains(skuName,'Low Priority') eq false",
+    )
+    return {
+        "vm_hour": by_region(
+            rows,
+            lambda row: row.get("armSkuName") if _linux_pay_as_you_go(row) else None,
+        )
+    }
+
+
+@price_fetcher("dedicated_host_hour", label="Dedicated Host, by host SKU")
+def fetch_dedicated_host_rates(ctx: RefreshContext) -> dict[str, Any]:
+    """``{region: {host sku key: usd per hour}}``.
+
+    Azure bills a dedicated host per host, whatever runs on it. The Retail
+    Prices API spells host SKUs inconsistently -- ``Dsv3_Type3``,
+    ``Fsv2 Type3``, ``Ebsv5-Type1`` against ARM's ``DSv3-Type3`` -- so both
+    sides are keyed by ``helpers.host_sku_key``, letters and digits only.
+
+    A row is keyed by its armSkuName and, where that differs, by its skuName
+    too, because the two disagree for a few families (``Mmsv2MedMem-Type1``
+    against ``Msmv2MedMem Type1``). A skuName that is only ``Type 1``, with no
+    family in it, is not used: it would collide across every family.
+    """
+    from zombiescan.helpers import host_sku_key
+
+    rows = [
+        row
+        for row in ctx.rows(
+            "serviceName eq 'Virtual Machines'", "contains(productName,'Dedicated Host')"
+        )
+        if _linux_pay_as_you_go(row)
+    ]
+    table = by_region(rows, lambda row: host_sku_key(row.get("armSkuName") or "") or None)
+    aliases = by_region(
+        rows,
+        lambda row: (
+            key
+            if (key := host_sku_key(row.get("skuName") or "")) and not key.startswith("type")
+            else None
+        ),
+    )
+    for region, prices in aliases.items():
+        for key, price in prices.items():
+            table.setdefault(region, {}).setdefault(key, price)
+    return {"dedicated_host_hour": table}
+
+
+# The meter each provisioned deployment SKU bills against, per PTU-hour.
+PTU_METERS = {
+    "Provisioned Managed Regional Unit": "ProvisionedManaged",
+    "Provisioned Managed Global Unit": "GlobalProvisionedManaged",
+    "Provisioned Managed Data Zone Unit": "DataZoneProvisionedManaged",
+}
+
+
+@price_fetcher("ptu_hour", label="Foundry provisioned throughput, per PTU")
+def fetch_ptu_rates(ctx: RefreshContext) -> dict[str, Any]:
+    """``{region: {deployment sku: usd per PTU-hour}}``.
+
+    A provisioned deployment bills every PTU every hour, whether or not a
+    request arrives. Regional, Data Zone and Global provisioned are separate
+    meters at different prices -- $2.00, $1.10 and $1.00 in eastus -- so each
+    is keyed by the deployment SKU name ARM reports. The monthly "Provisioned
+    Throughput Units" rows are reservations and are not read.
+    """
+    rows = ctx.rows("serviceName eq 'Foundry Models'", "productName eq 'Azure OpenAI'")
+    return {
+        "ptu_hour": by_region(
+            rows,
+            lambda row: (
+                PTU_METERS.get(row.get("meterName") or "")
+                if row.get("unitOfMeasure") == "1/Hour"
+                else None
+            ),
+        )
+    }
+
+
+# Container Apps meters, and the per-hour multiplier for the unit each is
+# published in. Idle Consumption usage is per second; Dedicated is per hour.
+CONTAINER_APPS_METERS = {
+    "Standard vCPU Idle Usage": ("idle_vcpu", {"1 Second": 3600}),
+    "Standard Memory Idle Usage": ("idle_gib", {"1 GiB Second": 3600}),
+    "Dedicated vCPU Usage": ("dedicated_vcpu", {"1 Hour": 1}),
+    "Dedicated Memory Usage": ("dedicated_gib", {"1 Hour": 1}),
+    "Dedicated Plan Management": ("dedicated_management", {"1 Hour": 1}),
+}
+
+
+@price_fetcher("container_apps_hour", label="Container Apps idle and Dedicated rates")
+def fetch_container_apps_rates(ctx: RefreshContext) -> dict[str, Any]:
+    """``{region: {rate: usd per hour}}`` for the charges an idle app still pays.
+
+    A Consumption replica kept alive by ``minReplicas`` bills the idle vCPU
+    and memory rates while it serves nothing. A Dedicated workload profile
+    bills its instances' vCPU and memory by the hour, plus a management fee
+    per environment, whatever runs on it. Every rate is stored per hour, so
+    the per-second idle meters are multiplied out here.
+    """
+    rows = ctx.rows("serviceName eq 'Azure Container Apps'")
+    table: dict[str, dict[str, float]] = {}
+    for meter, (variant, units) in CONTAINER_APPS_METERS.items():
+        matching = [row for row in rows if row.get("meterName") == meter]
+        for region, prices in by_region(matching, lambda row: row.get("unitOfMeasure")).items():
+            for unit, price in prices.items():
+                if unit in units:
+                    table.setdefault(region, {})[variant] = price * units[unit]
+    return {"container_apps_hour": table}
 
 
 @price_fetcher("nat_gateway_hour", label="NAT Gateway uptime")

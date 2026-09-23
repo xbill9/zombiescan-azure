@@ -20,6 +20,23 @@ from zombiescan import helpers
 from zombiescan.azure import ArmError
 from zombiescan.cleaners import Step, cleaner, snapshot_step
 from zombiescan.models import Finding, ScanContext
+from zombiescan.packs.core.empty_container_apps_environment import APP_TYPE as CONTAINER_APP
+from zombiescan.packs.core.empty_container_apps_environment import (
+    RESOURCE_TYPE as APPS_ENVIRONMENT,
+)
+from zombiescan.packs.core.empty_container_apps_environment import profiles_in_use
+from zombiescan.packs.core.idle_ml_compute import INSTANCE as ML_INSTANCE
+from zombiescan.packs.core.idle_ml_compute import RESOURCE_TYPE as ML_COMPUTE
+from zombiescan.packs.core.idle_ml_compute import never_stops, scale_to_zero
+from zombiescan.packs.core.idle_provisioned_deployment import ACCOUNT_TYPE as AI_ACCOUNT
+from zombiescan.packs.core.idle_provisioned_deployment import DIMENSION as DEPLOYMENT_DIMENSION
+from zombiescan.packs.core.idle_provisioned_deployment import METRIC as DEPLOYMENT_METRIC
+from zombiescan.packs.core.idle_provisioned_deployment import RESOURCE_TYPE as AI_DEPLOYMENT
+from zombiescan.packs.core.unused_capacity_reservation import (
+    GROUP_TYPE,
+    usage,
+    utilization_by_name,
+)
 
 
 def _delete(finding: Finding, resource_type: str, what: str, irreversible: bool = False) -> Step:
@@ -65,6 +82,204 @@ def clean_deallocated_vm(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
     The NIC survives too, and ``orphaned-nic`` picks it up.
     """
     yield _delete(finding, "Microsoft.Compute/virtualMachines", "virtual machine")
+
+
+@cleaner("idle-dedicated-host")
+def clean_idle_dedicated_host(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the host, after reading it again to confirm it is still empty.
+
+    Not irreversible: a host holds no data and a new one can be provisioned
+    in the same group. The re-read matters because a VM placed on the host
+    since the scan would make this a delete of a host in use, and ARM refuses
+    that with an error rather than a plan anyone could review.
+    """
+    try:
+        host = ctx.arm.get(finding.arm_id, "Microsoft.Compute/hostGroups/hosts")
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-read dedicated host {finding.resource_id} "
+            f"({helpers.arg(str(exc))}); refusing to plan its delete without it"
+        ) from exc
+    placed = helpers.properties(host).get("virtualMachines") or []
+    if placed:
+        raise RuntimeError(
+            f"dedicated host {finding.resource_id} now runs {len(placed)} VM(s). Re-run the scan"
+        )
+    yield _delete(finding, "Microsoft.Compute/hostGroups/hosts", "dedicated host")
+
+
+@cleaner("unused-capacity-reservation")
+def clean_unused_capacity_reservation(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Shrink the reservation to the VMs using it, or delete it if none are.
+
+    Not irreversible: a reservation holds no data and can be recreated, though
+    the capacity it guaranteed may not be available again -- which is the one
+    thing a reservation is for, and why the plan keeps the slots in use.
+
+    The group is read again during planning, and the step is sized from what
+    is allocated *now*, so a VM started since the scan keeps its slot.
+    """
+    group_id = finding.arm_id.rsplit("/capacityReservations/", 1)[0]
+    try:
+        group = ctx.arm.get(group_id, GROUP_TYPE, **{"$expand": "instanceView"})
+        reservation = ctx.arm.get(finding.arm_id, GROUP_TYPE)
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-read capacity reservation {finding.resource_id} "
+            f"({helpers.arg(str(exc))}); refusing to plan a change without it"
+        ) from exc
+
+    utilization = utilization_by_name(group).get(finding.resource_id.lower())
+    billed, used, _ = usage(reservation, utilization)
+    if billed <= used:
+        raise RuntimeError(
+            f"capacity reservation {finding.resource_id} is now fully used "
+            f"({used} of {billed}). Re-run the scan"
+        )
+    if used == 0:
+        yield _delete(finding, GROUP_TYPE, "capacity reservation")
+        return
+    sku = dict(reservation.get("sku") or {})
+    sku["capacity"] = used
+    yield Step(
+        description=(
+            f"shrink capacity reservation {finding.resource_id} from {billed} to {used} slot(s)"
+        ),
+        method="PATCH",
+        path=finding.arm_id,
+        resource_type=GROUP_TYPE,
+        body={"sku": sku},
+    )
+
+
+@cleaner("idle-ml-compute")
+def clean_idle_ml_compute(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Stop the compute instance, or drop the cluster's minimum node count to zero.
+
+    Neither is irreversible and neither deletes anything: a stopped instance
+    starts again with its disk intact, and a cluster at minimum zero still
+    scales up for the next job. The compute is read again during planning so
+    the cluster keeps its current maximum and idle timeout.
+    """
+    try:
+        compute = ctx.arm.get(finding.arm_id, ML_COMPUTE)
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-read ML compute {finding.resource_id} "
+            f"({helpers.arg(str(exc))}); refusing to plan a change without it"
+        ) from exc
+    kind = helpers.properties(compute).get("computeType")
+    if kind == ML_INSTANCE:
+        if not never_stops(compute):
+            raise RuntimeError(
+                f"compute instance {finding.resource_id} is no longer running without an "
+                "idle shutdown. Re-run the scan"
+            )
+        yield Step(
+            description=f"stop compute instance {finding.resource_id}",
+            method="POST",
+            path=f"{finding.arm_id}/stop",
+            resource_type=ML_COMPUTE,
+        )
+        return
+    scale = (helpers.properties(compute).get("properties") or {}).get("scaleSettings") or {}
+    yield Step(
+        description=f"set cluster {finding.resource_id} minimum nodes to 0",
+        method="PATCH",
+        path=finding.arm_id,
+        resource_type=ML_COMPUTE,
+        body=scale_to_zero(scale),
+    )
+
+
+# --------------------------------------------------------------------------
+# AI Services
+# --------------------------------------------------------------------------
+
+
+@cleaner("idle-provisioned-deployment")
+def clean_idle_provisioned_deployment(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the deployment, after reading its requests again.
+
+    Not irreversible: a deployment holds configuration, not data, and can be
+    recreated -- though provisioned capacity for the model may not be
+    available again when it is. The metric is re-read during planning so a
+    deployment that started serving since the scan is left alone.
+    """
+    account_id = finding.arm_id.rsplit("/deployments/", 1)[0]
+    name = finding.arm_id.rsplit("/deployments/", 1)[-1]
+    try:
+        requests = helpers.metric_totals(
+            ctx, account_id, DEPLOYMENT_METRIC, split_by=DEPLOYMENT_DIMENSION
+        )
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-read requests for {finding.resource_id} "
+            f"({helpers.arg(str(exc))}); refusing to plan its delete without them"
+        ) from exc
+    served = requests.get(name.lower())
+    if served:
+        raise RuntimeError(
+            f"deployment {finding.resource_id} has served {served:g} request(s) in the last "
+            f"{helpers.LOOKBACK_DAYS} days. Re-run the scan"
+        )
+    yield _delete(finding, AI_DEPLOYMENT, "model deployment")
+
+
+@cleaner("empty-ai-services-account")
+def clean_empty_ai_services_account(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the account, after listing its deployments and projects again.
+
+    Not irreversible: a deleted Cognitive Services account can be recovered
+    for 48 hours. Deleting it deletes every deployment and project inside, so
+    both are listed again during planning and the plan is refused if either
+    has appeared since the scan.
+    """
+    for child in ("deployments", "projects"):
+        try:
+            found = [
+                item.get("name")
+                for item in ctx.arm.list(f"{finding.arm_id}/{child}", AI_DEPLOYMENT)
+            ]
+        except ArmError as exc:
+            raise RuntimeError(
+                f"could not re-list {child} in {finding.resource_id} "
+                f"({helpers.arg(str(exc))}); refusing to plan its delete without it"
+            ) from exc
+        if found:
+            raise RuntimeError(
+                f"account {finding.resource_id} now has {len(found)} {child} "
+                f"({', '.join(map(str, found[:5]))}). Re-run the scan"
+            )
+    yield _delete(finding, AI_ACCOUNT, "AI Services account")
+
+
+# --------------------------------------------------------------------------
+# Container Apps
+# --------------------------------------------------------------------------
+
+
+@cleaner("empty-container-apps-environment")
+def clean_empty_container_apps_environment(ctx: ScanContext, finding: Finding) -> Iterator[Step]:
+    """Delete the environment, after listing container apps again.
+
+    Deleting an environment deletes the apps inside it, so the apps are
+    listed again during planning and the plan is refused if any now name this
+    environment. Irreversible: the environment's static IP is released and
+    Azure will not hand the same one back, the same as a public IP address.
+    """
+    try:
+        in_use = profiles_in_use(ctx.list(CONTAINER_APP))
+    except ArmError as exc:
+        raise RuntimeError(
+            f"could not re-list container apps ({helpers.arg(str(exc))}); refusing to plan "
+            f"a delete of environment {finding.resource_id} without it"
+        ) from exc
+    if finding.arm_id.lower() in in_use:
+        raise RuntimeError(
+            f"environment {finding.resource_id} now holds a container app. Re-run the scan"
+        )
+    yield _delete(finding, APPS_ENVIRONMENT, "Container Apps environment", irreversible=True)
 
 
 @cleaner("orphaned-snapshot")

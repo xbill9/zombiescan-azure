@@ -162,6 +162,58 @@ def disk_monthly_cost(ctx: ScanContext, disk: dict[str, Any], region: str) -> tu
     return price, approximate
 
 
+# How far back a metric-driven check looks before calling something idle.
+LOOKBACK_DAYS = 7
+
+METRICS = "Microsoft.Insights/metrics"
+
+
+def metric_totals(
+    ctx: ScanContext, resource_id: str, metric: str, split_by: str | None = None
+) -> dict[str, float]:
+    """The ``Total`` of one Azure Monitor platform metric over ``LOOKBACK_DAYS``.
+
+    One read against the resource's own metrics endpoint. With ``split_by``
+    the result is keyed by that dimension's value, lowercased; without it, by
+    ``""``. **A value with no activity is absent, not zero**: Azure Monitor
+    returns no series for a dimension value that recorded nothing, so a
+    caller reads a missing key as zero.
+
+    Platform metrics are served for a resource whether or not the
+    ``Microsoft.Insights`` provider is registered on the subscription --
+    measured against a subscription where it is not -- so a check reading
+    them declares only its own resource's provider.
+    """
+    query = {
+        "metricnames": metric,
+        "timespan": f"P{LOOKBACK_DAYS}D",
+        "aggregation": "Total",
+        "interval": "FULL",
+    }
+    if split_by:
+        query["$filter"] = f"{split_by} eq '*'"
+    response = ctx.arm.get(f"{resource_id}/providers/{METRICS}", METRICS, **query)
+    totals: dict[str, float] = {}
+    for series_group in response.get("value") or []:
+        for series in series_group.get("timeseries") or []:
+            labels = series.get("metadatavalues") or []
+            key = str(labels[0].get("value") or "").lower() if split_by and labels else ""
+            total = sum(float(point.get("total") or 0) for point in series.get("data") or [])
+            totals[key] = totals.get(key, 0.0) + total
+    return totals
+
+
+def host_sku_key(sku: str) -> str:
+    """A dedicated host SKU reduced to letters and digits, lowercased.
+
+    ARM names a host SKU ``DSv3-Type3``; the Retail Prices API spells the same
+    host ``Dsv3_Type3``, ``Fsv2 Type3`` or ``Ebsv5-Type1`` depending on the
+    family. Only the letters and digits agree, so both sides are keyed on
+    those.
+    """
+    return re.sub(r"[^a-z0-9]", "", sku.lower())
+
+
 PUBLIC_IPS = "Microsoft.Network/publicIPAddresses"
 
 
@@ -314,6 +366,8 @@ CONFIRMS = frozenset(
         "acr delete",
         "aks delete",
         "appservice plan delete",
+        "capacity reservation delete",
+        "containerapp env delete",
         "disk delete",
         "group delete",
         "monitor log-analytics workspace delete",
@@ -321,6 +375,7 @@ CONFIRMS = frozenset(
         "sql db delete",
         "storage account delete",
         "vm delete",
+        "vm host delete",
     }
 )
 

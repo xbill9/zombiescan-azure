@@ -1,0 +1,98 @@
+{
+  "accounts": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/ai-empty",
+        "name": "ai-empty",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "AIServices",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://ai-empty.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/ai-used",
+        "name": "ai-used",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "OpenAI",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://ai-used.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/ai-project",
+        "name": "ai-project",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "AIServices",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://ai-project.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/speech",
+        "name": "speech",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "SpeechServices",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://speech.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "used_deployments": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/ai-used/deployments/chat",
+        "name": "chat",
+        "sku": {
+          "name": "GlobalStandard",
+          "capacity": 20
+        },
+        "properties": {
+          "model": {
+            "format": "OpenAI",
+            "name": "gpt-5-mini",
+            "version": "2025-08-07"
+          },
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "project_projects": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/ai-project/projects/agents",
+        "name": "ai-project/agents"
+      }
+    ]
+  }
+}

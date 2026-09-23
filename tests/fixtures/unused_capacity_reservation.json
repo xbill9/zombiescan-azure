@@ -1,0 +1,198 @@
+{
+  "groups": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch",
+        "name": "crg-launch",
+        "location": "eastus",
+        "properties": {}
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-dr",
+        "name": "crg-dr",
+        "location": "eastus",
+        "properties": {}
+      }
+    ]
+  },
+  "launch_group": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch",
+    "name": "crg-launch",
+    "location": "eastus",
+    "properties": {
+      "capacityReservations": [
+        {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-idle"
+        },
+        {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-partial"
+        },
+        {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-full"
+        }
+      ],
+      "instanceView": {
+        "capacityReservations": [
+          {
+            "name": "cr-idle",
+            "utilizationInfo": {
+              "currentCapacity": 2,
+              "virtualMachinesAllocated": []
+            },
+            "statuses": [
+              {
+                "code": "ProvisioningState/succeeded"
+              }
+            ]
+          },
+          {
+            "name": "cr-partial",
+            "utilizationInfo": {
+              "currentCapacity": 4,
+              "virtualMachinesAllocated": [
+                {
+                  "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-01"
+                }
+              ]
+            },
+            "statuses": [
+              {
+                "code": "ProvisioningState/succeeded"
+              }
+            ]
+          },
+          {
+            "name": "cr-full",
+            "utilizationInfo": {
+              "currentCapacity": 2,
+              "virtualMachinesAllocated": [
+                {
+                  "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/api-01"
+                },
+                {
+                  "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/api-02"
+                }
+              ]
+            },
+            "statuses": [
+              {
+                "code": "ProvisioningState/succeeded"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "launch_reservations": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-idle",
+        "name": "cr-idle",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "zones": [
+          "1"
+        ],
+        "sku": {
+          "name": "Standard_D2s_v3",
+          "capacity": 2
+        },
+        "tags": {},
+        "properties": {
+          "reservationId": "00000000-0000-0000-0000-000000000002",
+          "provisioningState": "Succeeded",
+          "virtualMachinesAssociated": []
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-partial",
+        "name": "cr-partial",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "zones": [
+          "1"
+        ],
+        "sku": {
+          "name": "Standard_D4s_v5",
+          "capacity": 4
+        },
+        "tags": {},
+        "properties": {
+          "reservationId": "00000000-0000-0000-0000-000000000004",
+          "provisioningState": "Succeeded",
+          "virtualMachinesAssociated": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-01"
+            },
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-02"
+            },
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/web-03"
+            }
+          ]
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-launch/capacityReservations/cr-full",
+        "name": "cr-full",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "zones": [
+          "1"
+        ],
+        "sku": {
+          "name": "Standard_D2s_v3",
+          "capacity": 2
+        },
+        "tags": {},
+        "properties": {
+          "reservationId": "00000000-0000-0000-0000-000000000002",
+          "provisioningState": "Succeeded",
+          "virtualMachinesAssociated": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/api-01"
+            },
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/api-02"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dr_group": {
+    "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-dr",
+    "name": "crg-dr",
+    "location": "eastus",
+    "properties": {}
+  },
+  "dr_reservations": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/capacityReservationGroups/crg-dr/capacityReservations/cr-failover",
+        "name": "cr-failover",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "zones": [
+          "1"
+        ],
+        "sku": {
+          "name": "Standard_D2s_v3",
+          "capacity": 3
+        },
+        "tags": {},
+        "properties": {
+          "reservationId": "00000000-0000-0000-0000-000000000003",
+          "provisioningState": "Succeeded",
+          "virtualMachinesAssociated": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/dr-01"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

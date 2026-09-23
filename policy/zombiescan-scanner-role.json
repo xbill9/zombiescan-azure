@@ -9,6 +9,10 @@
         "Microsoft.Compute/snapshots/read",
         "Microsoft.Compute/images/read",
         "Microsoft.Compute/virtualMachines/read",
+        "Microsoft.Compute/hostGroups/read",
+        "Microsoft.Compute/hostGroups/hosts/read",
+        "Microsoft.Compute/capacityReservationGroups/read",
+        "Microsoft.Compute/capacityReservationGroups/capacityReservations/read",
 
         "Microsoft.Network/publicIPAddresses/read",
         "Microsoft.Network/natGateways/read",
@@ -20,6 +24,16 @@
         "Microsoft.Network/dnszones/read",
 
         "Microsoft.Web/serverfarms/read",
+
+        "Microsoft.App/containerApps/read",
+        "Microsoft.App/managedEnvironments/read",
+
+        "Microsoft.CognitiveServices/accounts/read",
+        "Microsoft.CognitiveServices/accounts/deployments/read",
+        "Microsoft.CognitiveServices/accounts/projects/read",
+
+        "Microsoft.MachineLearningServices/workspaces/read",
+        "Microsoft.MachineLearningServices/workspaces/computes/read",
 
         "Microsoft.Sql/servers/read",
         "Microsoft.Sql/servers/databases/read",
@@ -41,6 +55,7 @@
 
         "Microsoft.Insights/webtests/read",
         "Microsoft.Insights/components/read",
+        "Microsoft.Insights/metrics/read",
 
         "Microsoft.Resources/subscriptions/read",
         "Microsoft.Resources/subscriptions/resourceGroups/read",

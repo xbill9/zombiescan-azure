@@ -1,0 +1,155 @@
+{
+  "accounts": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-ptu",
+        "name": "acct-ptu",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "AIServices",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://acct-ptu.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-paygo",
+        "name": "acct-paygo",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "kind": "OpenAI",
+        "sku": {
+          "name": "S0"
+        },
+        "properties": {
+          "endpoint": "https://acct-paygo.cognitiveservices.azure.com/",
+          "publicNetworkAccess": "Enabled",
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "ptu_deployments": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-ptu/deployments/ptu-idle",
+        "name": "ptu-idle",
+        "sku": {
+          "name": "ProvisionedManaged",
+          "capacity": 15
+        },
+        "properties": {
+          "model": {
+            "format": "OpenAI",
+            "name": "gpt-5",
+            "version": "2025-08-07"
+          },
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-ptu/deployments/ptu-busy",
+        "name": "ptu-busy",
+        "sku": {
+          "name": "GlobalProvisionedManaged",
+          "capacity": 50
+        },
+        "properties": {
+          "model": {
+            "format": "OpenAI",
+            "name": "gpt-5-mini",
+            "version": "2025-08-07"
+          },
+          "provisioningState": "Succeeded"
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-ptu/deployments/chat",
+        "name": "chat",
+        "sku": {
+          "name": "GlobalStandard",
+          "capacity": 20
+        },
+        "properties": {
+          "model": {
+            "format": "OpenAI",
+            "name": "gpt-5-mini",
+            "version": "2025-08-07"
+          },
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "paygo_deployments": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.CognitiveServices/accounts/acct-paygo/deployments/chat",
+        "name": "chat",
+        "sku": {
+          "name": "GlobalStandard",
+          "capacity": 20
+        },
+        "properties": {
+          "model": {
+            "format": "OpenAI",
+            "name": "gpt-5-mini",
+            "version": "2025-08-07"
+          },
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "ptu_requests": {
+    "cost": 0,
+    "interval": "P7D",
+    "value": [
+      {
+        "name": {
+          "value": "x"
+        },
+        "timeseries": [
+          {
+            "metadatavalues": [
+              {
+                "name": {
+                  "value": "modeldeploymentname"
+                },
+                "value": "ptu-busy"
+              }
+            ],
+            "data": [
+              {
+                "timeStamp": "2026-09-16T00:00:00Z",
+                "total": 1200
+              }
+            ]
+          },
+          {
+            "metadatavalues": [
+              {
+                "name": {
+                  "value": "modeldeploymentname"
+                },
+                "value": "chat"
+              }
+            ],
+            "data": [
+              {
+                "timeStamp": "2026-09-16T00:00:00Z",
+                "total": 88
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

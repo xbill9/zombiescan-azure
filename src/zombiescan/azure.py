@@ -54,14 +54,21 @@ ARM = "https://management.azure.com"
 # silently. Resolved against the longest matching prefix, so a sub-type
 # inherits its parent's version unless it names its own.
 API_VERSIONS = {
+    "Microsoft.App/containerApps": "2026-07-01",
+    "Microsoft.App/managedEnvironments": "2026-07-01",
+    "Microsoft.CognitiveServices/accounts": "2026-07-01",
+    "Microsoft.Compute/capacityReservationGroups": "2026-04-01",
     "Microsoft.Compute/disks": "2026-03-02",
+    "Microsoft.Compute/hostGroups": "2026-04-01",
     "Microsoft.Compute/snapshots": "2026-03-02",
     "Microsoft.Compute/images": "2026-04-01",
     "Microsoft.Compute/virtualMachines": "2026-04-01",
     "Microsoft.ContainerRegistry/registries": "2025-11-01",
     "Microsoft.ContainerService/managedClusters": "2026-06-01",
+    "Microsoft.Insights/metrics": "2024-02-01",
     "Microsoft.Insights/webtests": "2022-06-15",
     "Microsoft.KeyVault/vaults": "2026-05-15",
+    "Microsoft.MachineLearningServices/workspaces": "2026-07-01",
     "Microsoft.Network/dnszones": "2018-05-01",
     "Microsoft.Network/loadBalancers": "2026-03-01",
     "Microsoft.Network/natGateways": "2026-03-01",

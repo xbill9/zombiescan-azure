@@ -1,0 +1,113 @@
+{
+  "groups": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-prod",
+        "name": "hg-prod",
+        "location": "eastus",
+        "properties": {
+          "platformFaultDomainCount": 1,
+          "hosts": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-prod/hosts/host-idle"
+            },
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-prod/hosts/host-busy"
+            }
+          ]
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-lab",
+        "name": "hg-lab",
+        "location": "eastus",
+        "properties": {
+          "platformFaultDomainCount": 1,
+          "hosts": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-lab/hosts/host-new-family"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "hosts_prod": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-prod/hosts/host-idle",
+        "name": "host-idle",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "type": "Microsoft.Compute/hostGroups/hosts",
+        "sku": {
+          "name": "DSv3-Type3"
+        },
+        "tags": {
+          "project": "pci-audit"
+        },
+        "properties": {
+          "platformFaultDomain": 0,
+          "autoReplaceOnFailure": true,
+          "licenseType": "None",
+          "provisioningTime": "2026-03-01T00:00:00Z",
+          "provisioningState": "Succeeded",
+          "virtualMachines": []
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-prod/hosts/host-busy",
+        "name": "host-busy",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "type": "Microsoft.Compute/hostGroups/hosts",
+        "sku": {
+          "name": "DSv3-Type3"
+        },
+        "tags": {
+          "project": "pci-audit"
+        },
+        "properties": {
+          "platformFaultDomain": 0,
+          "autoReplaceOnFailure": true,
+          "licenseType": "None",
+          "provisioningTime": "2026-03-01T00:00:00Z",
+          "provisioningState": "Succeeded",
+          "virtualMachines": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/pci-db-01"
+            },
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/pci-db-02"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "hosts_lab": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Compute/hostGroups/hg-lab/hosts/host-new-family",
+        "name": "host-new-family",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "type": "Microsoft.Compute/hostGroups/hosts",
+        "sku": {
+          "name": "Zzv9-Type1"
+        },
+        "tags": {
+          "project": "pci-audit"
+        },
+        "properties": {
+          "platformFaultDomain": 0,
+          "autoReplaceOnFailure": true,
+          "licenseType": "None",
+          "provisioningTime": "2026-03-01T00:00:00Z",
+          "provisioningState": "Succeeded",
+          "virtualMachines": []
+        }
+      }
+    ]
+  }
+}

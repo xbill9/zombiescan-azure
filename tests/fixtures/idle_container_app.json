@@ -1,0 +1,237 @@
+{
+  "apps": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/containerApps/app-idle",
+        "name": "app-idle",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "environmentId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+          "workloadProfileName": "Consumption",
+          "configuration": {
+            "ingress": {
+              "external": true,
+              "targetPort": 8080
+            }
+          },
+          "template": {
+            "containers": [
+              {
+                "name": "app-idle",
+                "image": "acr.azurecr.io/app-idle:1",
+                "resources": {
+                  "cpu": 0.5,
+                  "memory": "1Gi"
+                }
+              }
+            ],
+            "scale": {
+              "minReplicas": 1,
+              "maxReplicas": 3
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/containerApps/app-busy",
+        "name": "app-busy",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "environmentId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+          "workloadProfileName": "Consumption",
+          "configuration": {
+            "ingress": {
+              "external": true,
+              "targetPort": 8080
+            }
+          },
+          "template": {
+            "containers": [
+              {
+                "name": "app-busy",
+                "image": "acr.azurecr.io/app-busy:1",
+                "resources": {
+                  "cpu": 0.5,
+                  "memory": "1Gi"
+                }
+              }
+            ],
+            "scale": {
+              "minReplicas": 2,
+              "maxReplicas": 3
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/containerApps/app-zero",
+        "name": "app-zero",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "environmentId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+          "workloadProfileName": "Consumption",
+          "configuration": {
+            "ingress": {
+              "external": true,
+              "targetPort": 8080
+            }
+          },
+          "template": {
+            "containers": [
+              {
+                "name": "app-zero",
+                "image": "acr.azurecr.io/app-zero:1",
+                "resources": {
+                  "cpu": 0.5,
+                  "memory": "1Gi"
+                }
+              }
+            ],
+            "scale": {
+              "minReplicas": 0,
+              "maxReplicas": 3
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/containerApps/app-worker",
+        "name": "app-worker",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "environmentId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+          "workloadProfileName": "Consumption",
+          "configuration": {},
+          "template": {
+            "containers": [
+              {
+                "name": "app-worker",
+                "image": "acr.azurecr.io/app-worker:1",
+                "resources": {
+                  "cpu": 0.5,
+                  "memory": "1Gi"
+                }
+              }
+            ],
+            "scale": {
+              "minReplicas": 1,
+              "maxReplicas": 3
+            }
+          }
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/containerApps/app-on-dedicated",
+        "name": "app-on-dedicated",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "environmentId": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+          "workloadProfileName": "d4-pool",
+          "configuration": {
+            "ingress": {
+              "external": true,
+              "targetPort": 8080
+            }
+          },
+          "template": {
+            "containers": [
+              {
+                "name": "app-on-dedicated",
+                "image": "acr.azurecr.io/app-on-dedicated:1",
+                "resources": {
+                  "cpu": 0.5,
+                  "memory": "1Gi"
+                }
+              }
+            ],
+            "scale": {
+              "minReplicas": 1,
+              "maxReplicas": 3
+            }
+          }
+        }
+      }
+    ]
+  },
+  "environments": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.App/managedEnvironments/env-a",
+        "name": "env-a",
+        "location": "eastus",
+        "resourceGroup": "test-rg",
+        "tags": {},
+        "properties": {
+          "workloadProfiles": [
+            {
+              "name": "Consumption",
+              "workloadProfileType": "Consumption"
+            },
+            {
+              "name": "d4-pool",
+              "workloadProfileType": "D4",
+              "minimumCount": 1,
+              "maximumCount": 3
+            }
+          ],
+          "staticIp": "20.1.1.1",
+          "provisioningState": "Succeeded"
+        }
+      }
+    ]
+  },
+  "idle_requests": {
+    "cost": 0,
+    "interval": "P7D",
+    "value": [
+      {
+        "name": {
+          "value": "x"
+        },
+        "timeseries": [
+          {
+            "metadatavalues": [],
+            "data": [
+              {
+                "timeStamp": "2026-09-16T00:00:00Z",
+                "total": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "busy_requests": {
+    "cost": 0,
+    "interval": "P7D",
+    "value": [
+      {
+        "name": {
+          "value": "x"
+        },
+        "timeseries": [
+          {
+            "metadatavalues": [],
+            "data": [
+              {
+                "timeStamp": "2026-09-16T00:00:00Z",
+                "total": 540
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
