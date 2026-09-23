@@ -100,7 +100,7 @@ def build_finding(ctx: ScanContext, account: dict[str, Any], deployment: dict[st
 @check(
     CHECK_NAME,
     "Provisioned model deployments serving nothing",
-    providers="Microsoft.CognitiveServices",
+    providers=("Microsoft.CognitiveServices", "Microsoft.Insights"),
 )
 def idle_provisioned_deployment(ctx: ScanContext) -> Iterator[Finding]:
     for account in ctx.list(ACCOUNT_TYPE):

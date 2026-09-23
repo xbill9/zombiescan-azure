@@ -58,3 +58,11 @@ def test_the_command_names_account_and_deployment(make_context):
         "az cognitiveservices account deployment delete --name acct-ptu "
         f"--deployment-name ptu-idle --resource-group test-rg --subscription {SUBSCRIPTION}"
     )
+
+
+def test_the_metrics_provider_is_declared():
+    """The request count comes from Microsoft.Insights, so the engine must check
+    it is registered before trusting a zero."""
+    from zombiescan.registry import CHECKS
+
+    assert "Microsoft.Insights" in CHECKS["idle-provisioned-deployment"].providers

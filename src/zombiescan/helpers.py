@@ -179,10 +179,8 @@ def metric_totals(
     returns no series for a dimension value that recorded nothing, so a
     caller reads a missing key as zero.
 
-    Platform metrics are served for a resource whether or not the
-    ``Microsoft.Insights`` provider is registered on the subscription --
-    measured against a subscription where it is not -- so a check reading
-    them declares only its own resource's provider.
+    The metrics endpoint belongs to ``Microsoft.Insights``, so a check that
+    calls this declares that provider alongside its own resource's.
     """
     query = {
         "metricnames": metric,

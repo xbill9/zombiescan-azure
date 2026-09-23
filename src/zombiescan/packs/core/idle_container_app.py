@@ -123,7 +123,7 @@ def build_finding(ctx: ScanContext, app: dict[str, Any], replicas: int) -> Findi
 @check(
     CHECK_NAME,
     "Always-on container apps serving nothing",
-    providers="Microsoft.App",
+    providers=("Microsoft.App", "Microsoft.Insights"),
     uncleanable=(
         "lowering minReplicas creates a new revision and trades the idle charge for a "
         "cold start on the next request; run the printed 'az containerapp update' "

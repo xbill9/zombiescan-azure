@@ -52,3 +52,9 @@ def test_memory_units_are_read_as_gib():
     assert gib("1.5Gi") == 1.5
     assert gib("512Mi") == 0.5
     assert gib(None) == 0.0
+
+
+def test_the_metrics_provider_is_declared():
+    from zombiescan.registry import CHECKS
+
+    assert "Microsoft.Insights" in CHECKS["idle-container-app"].providers
