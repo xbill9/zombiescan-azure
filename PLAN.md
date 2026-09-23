@@ -107,13 +107,13 @@ them.
 | Check | Why it's waste | Rough monthly cost |
 | --- | --- | --- |
 | ✅ Unattached managed disks | Billed in full while attached to nothing | by tier: $0.60 (P1) to $3,604 (P80) |
-| ✅ Stopped and deallocated VMs | The compute is free, the disks are not | disk cost |
+| ✅ Stopped and deallocated VMs | The compute is free, the disks and IPs are not | disk and public IP cost |
 | ✅ Orphaned snapshots | Source disk gone | ~$0.05/GB, as a ceiling |
 | ✅ Unused managed images | Nothing boots from them | ~$0.05/GB |
 | ✅ Unused public IPs | Billed the same idle as in use | ~$3.65 each |
 | ✅ Idle NAT gateways | Flat hourly fee, subnet or no subnet | **$32.85/month** |
-| ✅ Idle load balancers | Standard SKU pays for its rules regardless | ~$18.25/month |
-| ✅ Orphaned NICs | Blocks deleting the IP, subnet and VNet | $0 (unblocks the rest) |
+| ✅ Idle load balancers | Standard SKU pays for its rules regardless | ~$18.25/month plus frontend IPs |
+| ✅ Orphaned NICs | Holds billed IPs; blocks deleting the IP, subnet and VNet | the IPs it holds, ~$3.65 each |
 | ✅ Unused NSGs | Rules attached to nothing, read as protection | $0 (hygiene) |
 | ✅ Unused subnets | IP range reserved against nothing | $0 (blocks reuse) |
 | ✅ Empty VNets | Nothing running inside | the priced waste within |

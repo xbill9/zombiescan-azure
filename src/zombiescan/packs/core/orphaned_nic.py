@@ -1,7 +1,9 @@
 """Network interfaces belonging to no virtual machine.
 
-A NIC costs nothing by itself, and this check is here anyway -- because an
-orphaned NIC is the thing that makes the *expensive* cleanup fail. Azure
+A NIC costs nothing by itself. The public IPs it holds do, and because each
+one points its ``ipConfiguration`` at the NIC, ``unused-public-ip`` counts
+them as in use -- so the finding is priced at those addresses. An orphaned NIC
+is also the thing that makes the rest of the cleanup fail. Azure
 refuses to delete a public IP that a NIC still references, refuses to delete a
 subnet a NIC still sits in, and refuses to delete the virtual network above
 it. So a single leftover NIC can be the reason a whole network's worth of
@@ -46,6 +48,15 @@ def _held_by(nic: dict[str, Any]) -> str | None:
     return None
 
 
+def _public_ip_ids(nic: dict[str, Any]) -> list[str]:
+    ids = []
+    for configuration in helpers.properties(nic).get("ipConfigurations") or []:
+        public = (helpers.properties(configuration).get("publicIPAddress") or {}).get("id")
+        if public:
+            ids.append(public)
+    return ids
+
+
 def _blocks(nic: dict[str, Any]) -> dict[str, Any]:
     """What this NIC is holding on to, and therefore keeping undeletable."""
     addresses: list[str] = []
@@ -61,13 +72,16 @@ def _blocks(nic: dict[str, Any]) -> dict[str, Any]:
     return {"public_ips": addresses, "subnets": sorted(subnets)}
 
 
-def build_finding(ctx: ScanContext, nic: dict[str, Any]) -> Finding:
+def build_finding(
+    ctx: ScanContext, nic: dict[str, Any], addresses: dict[str, dict[str, Any]]
+) -> Finding:
     name = nic["name"]
     arm_id = nic.get("id") or ""
     group = nic.get("resourceGroup") or azure.resource_group_of(arm_id)
     location = helpers.location_of(nic)
     properties = helpers.properties(nic)
     blocking = _blocks(nic)
+    cost, approximate, held_ips = helpers.held_public_ips(ctx, _public_ip_ids(nic), addresses)
 
     reason = "Network interface belongs to no VM"
     held = blocking["public_ips"]
@@ -75,6 +89,8 @@ def build_finding(ctx: ScanContext, nic: dict[str, Any]) -> Finding:
         reason += (
             f", and holds {len(held)} public IP address(es) that cannot be released until it goes"
         )
+        if cost:
+            reason += f" and bill ${cost:,.2f}/month between them"
     elif blocking["subnets"]:
         reason += ", and keeps its subnet and virtual network from being deleted"
 
@@ -87,15 +103,17 @@ def build_finding(ctx: ScanContext, nic: dict[str, Any]) -> Finding:
         arm_id=arm_id,
         location=location,
         reason=reason,
-        # A NIC has no charge of its own. The addresses it pins do, and they
-        # are reported by unused-public-ip -- adding them here would count the
-        # same dollars twice.
-        monthly_cost=0.0,
+        # A NIC has no charge of its own. The addresses it pins do, and
+        # unused-public-ip skips them because they point at this NIC, so this
+        # is the only finding that carries them.
+        monthly_cost=cost,
+        approximate_cost=approximate,
         remediation=helpers.az(
             f"az network nic delete --name {helpers.arg(name)}", ctx.subscription, group
         ),
         details={
             "blocks": blocking,
+            "public_ips": held_ips,
             "network_security_group": azure.name_of(
                 (properties.get("networkSecurityGroup") or {}).get("id")
             )
@@ -103,8 +121,10 @@ def build_finding(ctx: ScanContext, nic: dict[str, Any]) -> Finding:
             "accelerated_networking": properties.get("enableAcceleratedNetworking"),
             "tags": nic.get("tags") or {},
             "note": (
-                "a NIC is not billed. It is reported because Azure refuses to delete "
-                "the public IP, subnet or virtual network it references while it exists"
+                "a NIC is not billed; the cost is the public IPs it holds. Deleting the "
+                "NIC leaves them behind, and unused-public-ip reports them on the next "
+                "scan. Azure refuses to delete the public IP, subnet or virtual network "
+                "a NIC references while it exists"
             ),
         },
     )
@@ -112,6 +132,9 @@ def build_finding(ctx: ScanContext, nic: dict[str, Any]) -> Finding:
 
 @check(CHECK_NAME, "Network interfaces with no VM", providers="Microsoft.Network")
 def orphaned_nic(ctx: ScanContext) -> Iterator[Finding]:
-    for nic in ctx.list(RESOURCE_TYPE):
-        if _held_by(nic) is None:
-            yield build_finding(ctx, nic)
+    orphans = [nic for nic in ctx.list(RESOURCE_TYPE) if _held_by(nic) is None]
+    if not orphans:
+        return
+    addresses = helpers.public_ips_by_id(ctx)
+    for nic in orphans:
+        yield build_finding(ctx, nic, addresses)

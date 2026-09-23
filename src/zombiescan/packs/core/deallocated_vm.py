@@ -12,7 +12,7 @@ hardware and reaches ``VM deallocated``. Both states are reported here,
 because a VM nobody is using is waste either way, and a merely stopped one is
 the more expensive mistake.
 
-The finding is priced at the cost of the disks the VM would release, so it
+The finding is priced at the disks and the public IPs the VM holds, so it
 answers the question actually being asked -- what does leaving this here cost
 me? A VM in ``VM stopped`` also adds its compute, which the reason names.
 """
@@ -95,8 +95,36 @@ def _disk_cost(
     return total, approximate, attached
 
 
+def _ips_by_nic(addresses: dict[str, dict[str, Any]]) -> dict[str, list[str]]:
+    """Public IP ids keyed by the lowercased id of the NIC holding them.
+
+    An address names its holder as the NIC's IP configuration,
+    ``.../networkInterfaces/<nic>/ipConfigurations/<name>``; the part before
+    ``/ipConfigurations/`` is the NIC the VM's network profile lists.
+    """
+    by_nic: dict[str, list[str]] = {}
+    for arm_id, address in addresses.items():
+        holder = str((helpers.properties(address).get("ipConfiguration") or {}).get("id") or "")
+        nic = holder.lower().split("/ipconfigurations/")[0]
+        if "/networkinterfaces/" in nic:
+            by_nic.setdefault(nic, []).append(arm_id)
+    return by_nic
+
+
+def _public_ip_ids(vm: dict[str, Any], ips_by_nic: dict[str, list[str]]) -> list[str]:
+    profile = helpers.properties(vm).get("networkProfile") or {}
+    ids: list[str] = []
+    for nic in helpers.arm_ids(profile.get("networkInterfaces") or []):
+        ids += ips_by_nic.get(nic, [])
+    return ids
+
+
 def build_finding(
-    ctx: ScanContext, vm: dict[str, Any], disks_by_id: dict[str, dict[str, Any]]
+    ctx: ScanContext,
+    vm: dict[str, Any],
+    disks_by_id: dict[str, dict[str, Any]],
+    addresses: dict[str, dict[str, Any]] | None = None,
+    ips_by_nic: dict[str, list[str]] | None = None,
 ) -> Finding:
     name = vm["name"]
     arm_id = vm.get("id") or ""
@@ -105,15 +133,21 @@ def build_finding(
     state = _power_state(vm) or DEALLOCATED
 
     cost, approximate, attached = _disk_cost(ctx, azure.region_of(location), vm, disks_by_id)
+    ip_cost, ip_approximate, held_ips = helpers.held_public_ips(
+        ctx, _public_ip_ids(vm, ips_by_nic or {}), addresses or {}
+    )
+    ips = f" and {len(held_ips)} public IP(s)" if ip_cost else ""
     size = (helpers.properties(vm).get("hardwareProfile") or {}).get("vmSize")
 
     if state == STOPPED:
         reason = (
             f"VM is stopped but not deallocated, so its compute is still reserved and "
-            f"still billed, on top of its {len(attached)} disk(s)"
+            f"still billed, on top of its {len(attached)} disk(s){ips}"
         )
     else:
-        reason = f"VM is deallocated; its {len(attached)} disk(s) bill in full while it sits there"
+        reason = (
+            f"VM is deallocated; its {len(attached)} disk(s){ips} bill in full while it sits there"
+        )
 
     return Finding(
         check=CHECK_NAME,
@@ -124,29 +158,35 @@ def build_finding(
         arm_id=arm_id,
         location=location,
         reason=reason,
-        monthly_cost=cost,
+        monthly_cost=cost + ip_cost,
         # Deleting the VM leaves the disks behind by default, which is what
         # makes this reversible: the unattached-disk check reports them on the
         # next scan with a snapshot-first plan of their own.
         remediation=helpers.az(f"az vm delete --name {helpers.arg(name)}", ctx.subscription, group),
-        approximate_cost=approximate,
+        approximate_cost=approximate or ip_approximate,
         details={
             "power_state": state,
             "vm_size": size,
             "disks": attached,
+            "public_ips": held_ips,
             "tags": vm.get("tags") or {},
             "note": (
-                "cost is the attached disks only. A deallocated VM is not billed for "
-                "compute; a stopped-but-not-deallocated one is, and that is not "
-                "included here because the rate depends on the VM size and its licence"
+                "cost is the attached disks and public IPs. A deallocated VM is not "
+                "billed for compute; a stopped-but-not-deallocated one is, and that is "
+                "not included here because the rate depends on the VM size and its licence"
                 if state == STOPPED
-                else "cost is the attached disks only; compute is not billed while deallocated"
+                else "cost is the attached disks and public IPs; compute is not billed "
+                "while deallocated"
             ),
         },
     )
 
 
-@check(CHECK_NAME, "Stopped VMs still paying for disks", providers="Microsoft.Compute")
+@check(
+    CHECK_NAME,
+    "Stopped VMs still paying for disks",
+    providers=("Microsoft.Compute", "Microsoft.Network"),
+)
 def deallocated_vm(ctx: ScanContext) -> Iterator[Finding]:
     disks_by_id = {
         str(disk.get("id") or "").lower(): disk
@@ -160,6 +200,12 @@ def deallocated_vm(ctx: ScanContext) -> Iterator[Finding]:
         "| extend powerState = tostring(properties.extended.instanceView.powerState.code) "
         "| project id, name, location, resourceGroup, tags, properties, powerState"
     )
-    for vm in rows:
-        if _power_state(vm) in IDLE_STATES:
-            yield build_finding(ctx, vm, disks_by_id)
+    idle = [vm for vm in rows if _power_state(vm) in IDLE_STATES]
+    if not idle:
+        return
+    # A VM's public IPs hang off its NICs, and the address is what names the
+    # NIC, so one list of addresses prices every VM without listing NICs.
+    addresses = helpers.public_ips_by_id(ctx)
+    ips_by_nic = _ips_by_nic(addresses)
+    for vm in idle:
+        yield build_finding(ctx, vm, disks_by_id, addresses, ips_by_nic)

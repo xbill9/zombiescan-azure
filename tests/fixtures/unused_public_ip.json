@@ -64,6 +64,22 @@
           "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/natGateways/egress-gw"
         }
       }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/pool-ip-3",
+      "name": "pool-ip-3",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipAddress": "20.5.5.3",
+        "publicIPPrefix": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPPrefixes/egress-range"
+        }
+      }
     }
   ]
 }

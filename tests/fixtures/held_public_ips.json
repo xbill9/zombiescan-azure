@@ -1,0 +1,72 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/lb-frontend-old",
+      "name": "lb-frontend-old",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipAddress": "20.1.2.3",
+        "publicIPAddressVersion": "IPv4",
+        "ipConfiguration": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic-old/ipConfigurations/ipconfig1"
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/api-lb-ip",
+      "name": "api-lb-ip",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipAddress": "20.1.2.4",
+        "publicIPAddressVersion": "IPv4",
+        "ipConfiguration": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/loadBalancers/api-lb/frontendIPConfigurations/fe"
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/batch-runner-ip",
+      "name": "batch-runner-ip",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipAddress": "20.1.2.5",
+        "publicIPAddressVersion": "IPv4",
+        "ipConfiguration": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/batch-runner-nic/ipConfigurations/ipconfig1"
+        }
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/web-01-ip",
+      "name": "web-01-ip",
+      "location": "eastus",
+      "resourceGroup": "test-rg",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipAddress": "20.9.9.9",
+        "publicIPAddressVersion": "IPv4",
+        "ipConfiguration": {
+          "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic/ipConfigurations/ipconfig1"
+        }
+      }
+    }
+  ]
+}

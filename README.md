@@ -270,13 +270,13 @@ whole service with its own provider and its own pricing.
 | Check | Finds | Costs money |
 | --- | --- | --- |
 | `unattached-disk` | Managed disks in `Unattached` state | yes, at the disk's **tier** rate |
-| `deallocated-vm` | VMs stopped or deallocated | the disks they keep |
+| `deallocated-vm` | VMs stopped or deallocated | the disks and public IPs they keep |
 | `orphaned-snapshot` | Snapshots whose source disk is gone | per stored GB-month, as a ceiling |
 | `unused-image` | Managed images nothing boots from | per stored GB-month |
-| `unused-public-ip` | Static public IPs attached to nothing | yes, at the ordinary rate |
+| `unused-public-ip` | Static public IPs attached to nothing | yes, at the ordinary rate; $0 when carved from a prefix, which bills per address |
 | `idle-nat-gateway` | NAT gateways with no subnet | **yes, ~$32.85/month flat** |
-| `idle-load-balancer` | Standard load balancers with empty backend pools | the included-rules charge |
-| `orphaned-nic` | Network interfaces belonging to no VM | no — it blocks other deletions |
+| `idle-load-balancer` | Standard load balancers with empty backend pools | the included-rules charge plus frontend public IPs |
+| `orphaned-nic` | Network interfaces belonging to no VM | the public IPs it holds; it also blocks other deletions |
 | `unused-nsg` | Security groups on no subnet and no NIC | no |
 | `unused-subnet` | Subnets with nothing in them | no — the IP range is the cost |
 | `empty-vnet` | Virtual networks with no NIC in any subnet | whatever priced waste is inside |

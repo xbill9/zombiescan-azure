@@ -10,7 +10,10 @@ FIXTURE = load_fixture("deallocated_vm")
 
 def _findings(make_context):
     ctx, arm = make_context(
-        {"Microsoft.Compute/disks": FIXTURE["disks"]},
+        {
+            "Microsoft.Compute/disks": FIXTURE["disks"],
+            "Microsoft.Network/publicIPAddresses": load_fixture("held_public_ips"),
+        },
         graph={"microsoft.compute/virtualmachines": FIXTURE["graph"]},
     )
     return list(deallocated_vm(ctx)), arm
@@ -21,11 +24,14 @@ def test_running_vms_are_not_reported(make_context):
     assert {f.resource_id for f in findings} == {"batch-runner", "forgotten-lab"}
 
 
-def test_a_deallocated_vm_is_priced_at_its_disks(make_context):
-    """128 GiB Premium is a P10 ($20) and 32 GiB Standard HDD an S4 ($1.50)."""
+def test_a_deallocated_vm_is_priced_at_its_disks_and_public_ip(make_context):
+    """128 GiB Premium is a P10 ($20), 32 GiB Standard HDD an S4 ($1.50), and a
+    Standard static address $3.65 whether the VM runs or not."""
     findings, _ = _findings(make_context)
     vm = next(f for f in findings if f.resource_id == "batch-runner")
-    assert vm.monthly_cost == 21.50
+    assert vm.monthly_cost == 21.50 + 0.005 * 730
+    assert [ip["name"] for ip in vm.details["public_ips"]] == ["batch-runner-ip"]
+    assert "1 public IP(s)" in vm.reason
     assert [d["role"] for d in vm.details["disks"]] == ["os", "data"]
     assert [d["billed_tier"] for d in vm.details["disks"]] == ["P10 LRS", "S4 LRS"]
 
@@ -52,6 +58,21 @@ def test_the_disks_are_left_behind_so_the_step_is_reversible(make_context):
     # --force-deletion would take the disks with it, and the point of leaving
     # them is that unattached-disk reports them with a snapshot-first plan.
     assert "--force-deletion" not in vm.remediation
+
+
+def test_a_vm_with_no_public_ip_is_priced_at_its_disks_alone(make_context):
+    findings, _ = _findings(make_context)
+    vm = next(f for f in findings if f.resource_id == "forgotten-lab")
+    assert vm.details["public_ips"] == []
+    assert "public IP" not in vm.reason
+
+
+def test_the_check_needs_the_network_provider_too(make_context):
+    """Its addresses are read from Microsoft.Network; an unregistered provider
+    must stop the check rather than price the VM without them."""
+    from zombiescan.registry import CHECKS
+
+    assert "Microsoft.Network" in CHECKS["deallocated-vm"].providers
 
 
 def test_a_disk_the_scan_cannot_see_is_skipped_rather_than_guessed(make_context):

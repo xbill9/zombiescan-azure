@@ -26,7 +26,12 @@
         ],
         "frontendIPConfigurations": [
           {
-            "name": "fe"
+            "name": "fe",
+            "properties": {
+              "publicIPAddress": {
+                "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/publicIPAddresses/api-lb-ip"
+              }
+            }
           }
         ]
       }

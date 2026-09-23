@@ -162,6 +162,68 @@ def disk_monthly_cost(ctx: ScanContext, disk: dict[str, Any], region: str) -> tu
     return price, approximate
 
 
+PUBLIC_IPS = "Microsoft.Network/publicIPAddresses"
+
+
+def public_ip_monthly_cost(ctx: ScanContext, address: dict[str, Any]) -> tuple[float, bool]:
+    """What one public IP address costs a month, and whether the figure is a fallback.
+
+    A Standard address bills the same hourly rate attached or idle. A dynamic
+    Basic address is billed only while attached to something running, so a
+    detached or deallocated one costs nothing. An address carved from a public
+    IP prefix is priced at nothing too: the prefix bills per address in its
+    range from the moment it exists, so its cost belongs to the prefix.
+    """
+    props = properties(address)
+    if (props.get("publicIPPrefix") or {}).get("id"):
+        return 0.0, False
+    sku = (address.get("sku") or {}).get("name") or "Basic"
+    allocation = props.get("publicIPAllocationMethod") or "Static"
+    if sku == "Basic" and allocation == "Dynamic":
+        return 0.0, False
+    return ctx.pricing.rate("public_ip.month", region=azure.region_of(location_of(address)))
+
+
+def public_ips_by_id(ctx: ScanContext) -> dict[str, dict[str, Any]]:
+    """Every public IP address in the subscription, keyed by lowercased ARM id."""
+    return {
+        str(address.get("id") or "").lower(): address
+        for address in ctx.list(PUBLIC_IPS)
+        if address.get("id")
+    }
+
+
+def held_public_ips(
+    ctx: ScanContext, ids: Iterable[str], addresses: dict[str, dict[str, Any]]
+) -> tuple[float, bool, list[dict[str, Any]]]:
+    """What the public IPs a zombie holds cost a month, and what they are.
+
+    An address held by an orphaned NIC, a deallocated VM or an idle load
+    balancer points its ``ipConfiguration`` at that holder, so
+    ``unused-public-ip`` counts it as in use. The holder's finding carries its
+    cost instead, or nothing would.
+    """
+    total = 0.0
+    approximate = False
+    held: list[dict[str, Any]] = []
+    for arm_id in sorted({i.lower() for i in ids if i}):
+        address = addresses.get(arm_id)
+        if address is None:
+            continue
+        cost, is_approximate = public_ip_monthly_cost(ctx, address)
+        total += cost
+        approximate = approximate or (is_approximate and bool(cost))
+        held.append(
+            {
+                "name": address.get("name"),
+                "ip_address": properties(address).get("ipAddress"),
+                "sku": (address.get("sku") or {}).get("name") or "Basic",
+                "monthly_cost": round(cost, 2),
+            }
+        )
+    return total, approximate, held
+
+
 # --------------------------------------------------------------------------
 # Cross-referencing
 # --------------------------------------------------------------------------

@@ -24,6 +24,13 @@
               }
             }
           ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/batch-runner-nic"
+            }
+          ]
         }
       }
     },
@@ -66,6 +73,13 @@
             }
           },
           "dataDisks": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/test-rg/providers/Microsoft.Network/networkInterfaces/web-01-nic"
+            }
+          ]
         }
       }
     }

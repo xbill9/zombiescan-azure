@@ -13,7 +13,18 @@ def _findings(make_context):
 
 def test_an_address_on_a_nic_or_a_nat_gateway_is_in_use(make_context):
     findings, _ = _findings(make_context)
-    assert {f.resource_id for f in findings} == {"lb-frontend-old", "legacy-basic"}
+    assert {f.resource_id for f in findings} == {"lb-frontend-old", "legacy-basic", "pool-ip-3"}
+
+
+def test_an_address_from_a_prefix_is_reported_but_priced_on_the_prefix(make_context):
+    """publicIPPrefix names the range an address came from, not what uses it.
+    The prefix bills per address in its range, so deleting this one saves
+    nothing by itself."""
+    findings, _ = _findings(make_context)
+    pooled = next(f for f in findings if f.resource_id == "pool-ip-3")
+    assert pooled.monthly_cost == 0.0
+    assert pooled.details["public_ip_prefix"] == "egress-range"
+    assert "carved from prefix egress-range" in pooled.reason
 
 
 def test_a_standard_static_address_is_billed_whether_or_not_it_is_attached(make_context):
