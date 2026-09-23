@@ -306,3 +306,76 @@ def test_a_second_tenant_still_gets_its_own_token(monkeypatch):
 
     assert len(calls) == 2
     assert credential.token(WORK_TENANT) != credential.token(PERSONAL_TENANT)
+
+
+# --- telling a personal account from a work one ----------------------------
+
+
+def _jwt(claims):
+    import base64
+    import json
+
+    body = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    return f"header.{body}.signature"
+
+
+@pytest.mark.parametrize(
+    "claims, kind",
+    [
+        ({"idp": "live.com", "tid": PERSONAL_TENANT, "scp": "user_impersonation"}, azure.PERSONAL),
+        ({"tid": WORK_TENANT, "upn": "me@example.com", "scp": "user_impersonation"}, azure.WORK),
+        (
+            {"idp": f"https://sts.windows.net/{WORK_TENANT}/", "scp": "user_impersonation"},
+            azure.GUEST,
+        ),
+        ({"idtyp": "app", "appid": "app-id"}, azure.SERVICE_PRINCIPAL),
+        ({}, ""),
+    ],
+)
+def test_the_kind_of_account_is_read_off_the_token(claims, kind):
+    """`az account list` shows a personal and a work account as the same user;
+    only the token's `idp` claim tells them apart."""
+    assert azure.account_kind(azure._claims(_jwt(claims))) == kind
+
+
+def test_a_token_that_is_not_a_jwt_has_no_kind():
+    assert azure.account_kind(azure._claims("opaque")) == ""
+
+
+def test_each_tenant_reports_the_kind_of_account_that_holds_its_token(monkeypatch):
+    tokens = {
+        None: (_jwt({"tid": WORK_TENANT, "scp": "x"}), WORK_TENANT),
+        "sub-personal": (_jwt({"idp": "live.com", "scp": "x"}), PERSONAL_TENANT),
+    }
+
+    def fake_run_az(args):
+        subscription = args[args.index("--subscription") + 1] if "--subscription" in args else None
+        value, tenant = tokens[subscription]
+        return {"accessToken": value, "expires_on": 9999999999, "tenant": tenant}
+
+    monkeypatch.setattr(azure, "_run_az", fake_run_az)
+    arm = Arm(Credential(), [WORK, PERSONAL])
+    arm.prepare(["sub-personal"])
+
+    assert arm.account_kind("sub-work") == azure.WORK
+    assert arm.account_kind("sub-personal") == azure.PERSONAL
+
+
+def test_az_account_list_carries_the_directory_name_and_default(monkeypatch):
+    rows = [
+        {
+            "id": "sub-personal",
+            "name": "Azure subscription 1",
+            "tenantId": PERSONAL_TENANT,
+            "tenantDisplayName": "Default Directory",
+            "tenantDefaultDomain": "meexamplecom.onmicrosoft.com",
+            "state": "Enabled",
+            "isDefault": True,
+            "user": {"name": "me@example.com", "type": "user"},
+        }
+    ]
+    monkeypatch.setattr(azure, "_run_az", lambda args: rows)
+    (found,) = azure.known_subscriptions()
+    assert found.tenant_name == "Default Directory"
+    assert found.tenant_domain == "meexamplecom.onmicrosoft.com"
+    assert found.is_default

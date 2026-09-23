@@ -33,6 +33,7 @@ group, because no ``az`` delete command works without it.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import subprocess
@@ -195,6 +196,11 @@ class Subscription:
     tenant_id: str
     state: str
     user: str
+    # What `az account list` says about the directory, for the operator to
+    # recognise it by: "Default Directory", "contoso.onmicrosoft.com".
+    tenant_name: str = ""
+    tenant_domain: str = ""
+    is_default: bool = False
 
     @property
     def enabled(self) -> bool:
@@ -232,6 +238,9 @@ def known_subscriptions(refresh: bool = False) -> list[Subscription]:
                     tenant_id=row["tenantId"],
                     state=row.get("state") or "Unknown",
                     user=identity.get("name") or "",
+                    tenant_name=row.get("tenantDisplayName") or "",
+                    tenant_domain=row.get("tenantDefaultDomain") or "",
+                    is_default=bool(row.get("isDefault")),
                 )
             )
     return found
@@ -245,6 +254,47 @@ class _Token:
     # token fetched under one key can be filed under its real tenant too
     # rather than fetched a second time.
     tenant: str = ""
+    # What kind of account signed in for this tenant, read off the token.
+    kind: str = ""
+
+
+PERSONAL = "personal Microsoft account"
+WORK = "work or school account"
+GUEST = "guest from another directory"
+SERVICE_PRINCIPAL = "service principal"
+
+
+def _claims(token: str) -> dict[str, Any]:
+    """The payload of a JWT, unverified. Only ever read for display."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except (IndexError, ValueError):
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
+def account_kind(claims: dict[str, Any]) -> str:
+    """Personal, work or school, guest, or service principal, from token claims.
+
+    ``az account list`` spells a personal account and a work account the same
+    way -- both are ``type: user`` with the same email -- so the token is where
+    the difference shows. A personal Microsoft account signs in through
+    ``live.com`` and its token says so in ``idp``. A work or school account
+    signing into its own directory carries no ``idp`` at all; one signing into
+    somebody else's names its home directory's issuer there instead.
+    """
+    if not claims:
+        return ""
+    if claims.get("idtyp") == "app" or ("appid" in claims and "scp" not in claims):
+        return SERVICE_PRINCIPAL
+    idp = str(claims.get("idp") or "")
+    if "live.com" in idp:
+        return PERSONAL
+    if idp:
+        return GUEST
+    return WORK
 
 
 class Credential:
@@ -297,7 +347,12 @@ class Credential:
                 "'az account get-access-token' returned no token. Run 'az login' first."
             )
         expires = float(payload.get("expires_on") or 0) or time.time() + 3600
-        return _Token(value=value, expires=expires, tenant=str(payload.get("tenant") or ""))
+        return _Token(
+            value=value,
+            expires=expires,
+            tenant=str(payload.get("tenant") or ""),
+            kind=account_kind(_claims(value)),
+        )
 
     def warm(self, tenant: str, subscription: str | None = None) -> None:
         """Fetch this tenant's token now, on the calling thread.
@@ -336,6 +391,11 @@ class Credential:
             if current is None or self._expiring(current):
                 self._tokens[tenant] = self._fetch(self._sources.get(tenant))
             return self._tokens[tenant].value
+
+    def account_kind(self, tenant: str) -> str:
+        """What kind of account holds this tenant's token, or empty if none yet."""
+        token = self._tokens.get(tenant)
+        return token.kind if token else ""
 
     @property
     def tenants(self) -> list[str]:
@@ -438,6 +498,17 @@ class Arm:
         if tenant:
             return tenant, self._representative.get(tenant, subscription)
         return f"subscription:{subscription.lower()}", subscription
+
+    def subscription(self, subscription: str) -> Subscription | None:
+        """What ``az`` knows about a subscription, or None if it has not seen it."""
+        wanted = subscription.lower()
+        return next((s for s in self.known if s.id.lower() == wanted), None)
+
+    def account_kind(self, subscription: str) -> str:
+        """Personal, work or school, guest or service principal, for this
+        subscription's tenant. Empty until ``prepare`` has fetched its token."""
+        reader = getattr(self._credential, "account_kind", None)
+        return reader(self.token_source(subscription)[0]) if reader else ""
 
     def tenant_of(self, subscription: str) -> str:
         """The tenant a subscription sits in, or empty if ``az`` has not seen it."""

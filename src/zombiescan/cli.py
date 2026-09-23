@@ -112,6 +112,50 @@ def _tenant_note(arm, subscriptions: list[str]) -> str:
     return f" across {len(tenants)} tenants" if len(tenants) > 1 else ""
 
 
+def _print_scope(console: Console, arm, principal: str, subscriptions: list[str]) -> None:
+    """Who is signed in, and every tenant and subscription the scan will cover.
+
+    One email address can be both a personal Microsoft account and a work or
+    school account, and ``az`` lists both as the same user. The kind of account
+    is read off each tenant's token, so it is fetched here -- single-threaded,
+    the same fetch ``scan`` would make before its pool starts.
+    """
+    try:
+        arm.prepare(subscriptions)
+    except CredentialError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(2)
+
+    by_tenant: dict[str, list[str]] = {}
+    for subscription in subscriptions:
+        by_tenant.setdefault(arm.tenant_of(subscription), []).append(subscription)
+
+    console.print(f"[dim]Scanning as {principal}[/dim]")
+    for tenant, members in by_tenant.items():
+        known = arm.subscription(members[0])
+        kind = arm.account_kind(members[0]) or "account kind unknown"
+        if tenant and known:
+            console.print(f"[dim]Tenant {known.tenant_name or 'unnamed directory'} — {kind}[/dim]")
+            if known.tenant_domain:
+                console.print(f"[dim]  domain        {known.tenant_domain}[/dim]")
+            console.print(f"[dim]  tenant id     {tenant}[/dim]")
+        else:
+            console.print(f"[dim]Tenant not known to az — {kind}[/dim]")
+        if known and known.user:
+            console.print(f"[dim]  signed in as  {known.user}[/dim]")
+        for subscription in members:
+            known = arm.subscription(subscription)
+            if known:
+                notes = ["default"] if known.is_default else []
+                if known.state != "Enabled":
+                    notes.append(known.state)
+                suffix = f" ({', '.join(notes)})" if notes else ""
+                console.print(f"[dim]  subscription  {known.name}{suffix}[/dim]")
+                console.print(f"[dim]                {known.id}[/dim]")
+            else:
+                console.print(f"[dim]  subscription  {subscription}[/dim]")
+
+
 def _credentials(console: Console, subscription: str | None, refresh: bool = False):
     try:
         return verify_credentials(subscription, refresh=refresh)
@@ -183,7 +227,7 @@ def scan_command(
         console.print(f"[red]{exc}[/red]")
         sys.exit(2)
 
-    console.print(f"[dim]Scanning as {principal}[/dim]")
+    _print_scope(console, arm, principal, targets)
     console.print(
         f"[dim]{len(targets)} subscription(s){_tenant_note(arm, targets)}, "
         f"{len(selected)} check(s) — read-only[/dim]"
@@ -347,7 +391,7 @@ def clean_command(
         except (CredentialError, ValueError) as exc:
             console.print(f"[red]{exc}[/red]")
             sys.exit(2)
-        console.print(f"[dim]Scanning as {principal} — {len(targets)} subscription(s)[/dim]")
+        _print_scope(console, arm, principal, targets)
         with console.status("Scanning..."):
             result = scan(arm, targets, selected, pricing)
         if result.completely_failed:

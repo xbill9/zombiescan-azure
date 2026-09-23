@@ -125,12 +125,32 @@ into** under that config directory, not just the current one. An ARM token is
 issued for a single tenant, so it holds one per tenant and routes each request
 to the right one — a scan that held a single token would quietly cover half of
 what you can see and report less waste than there is. Identities with
-different usernames share one config directory without trouble, and the header
-says so when a scan spans more than one tenant:
+different usernames share one config directory without trouble. The header
+names every tenant in scope, the kind of account signed into it, and each
+subscription:
 
 ```
+Scanning as me@example.com
+Tenant Default Directory — personal Microsoft account
+  domain        meexamplecom.onmicrosoft.com
+  tenant id     22222222-2222-2222-2222-222222222222
+  signed in as  me@example.com
+  subscription  Azure subscription 1 (default)
+                33333333-3333-3333-3333-333333333333
+Tenant Contoso — work or school account
+  domain        contoso.onmicrosoft.com
+  tenant id     11111111-1111-1111-1111-111111111111
+  signed in as  me@example.com
+  subscription  Engineering
+                44444444-4444-4444-4444-444444444444
 2 subscription(s) across 2 tenants, 22 check(s) — read-only
 ```
+
+`az account list` shows both as the same user with the same email. The kind
+comes from the tenant's access token: a personal Microsoft account signs in
+through `live.com` and its token carries `idp: live.com`; a work or school
+account in its own directory has no `idp`; a guest from another directory
+names its home issuer there.
 
 A full sweep also runs `az account list --refresh`, which costs about a second
 and picks up subscriptions created since the last login.
